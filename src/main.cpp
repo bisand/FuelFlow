@@ -5,7 +5,6 @@
 #include <ESP8266WebServer.h>     //Local WebServer used to serve the configuration portal
 #include <WiFiManager.h>          //https://github.com/tzapu/WiFiManager WiFi Configuration Magic
 
-#include <mcp_can.h>
 #include <NMEA2000_CAN.h>
 #include <NMEA2000_mcp.h>
 
