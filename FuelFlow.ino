@@ -111,8 +111,8 @@ void loop() {
 
 void SendN2kEngineData(double fuelRate) {
   tN2kMsg N2kMsg;
-
-  SetN2kEngineDynamicParam(N2kMsg, 1, 0, 0, 0, 0, fuelRate, 0);
+  
+  SetN2kEngineDynamicParam(N2kMsg, 0, 0, 0, 0, 0, fuelRate, 0);
   NMEA2000.SendMsg(N2kMsg);
   Serial.println("Sent fuel rate.");
   // SetN2kDCBatStatus(N2kMsg,1,13.87,5.12,35.12,1);
