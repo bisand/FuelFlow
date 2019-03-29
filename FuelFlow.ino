@@ -90,12 +90,13 @@ float pulsesPerLiter = 300.0; // Pulses per liter.
 void loop() {
   if (millis() - previousMillis > interval) {
     portENTER_CRITICAL_ISR(&mux);
-    //float calc = (frequency * 60 / 7.5);  //(Pulse frequency x 60) / 7.5Q, = flow rate in L/hour 
     float calc = (((((float)frequency * (pulsesPerLiter / 1000.0)) * 60.0) * 60.0) / 1000.0);
     pulses += frequency;
     frequency = 0;                  //Set NbTops to 0 ready for calculations
     portEXIT_CRITICAL_ISR(&mux);
     previousMillis = millis();
+
+    SendN2kEngineData(calc);
 
     Serial.print (pulses, DEC); //Prints the number calculated above
     Serial.println (" pulses"); //Prints "L/hour" and returns a  new line
@@ -103,24 +104,22 @@ void loop() {
     Serial.println (" L/hour"); //Prints "L/hour" and returns a  new line
   }
 
-  SendN2kBattery();
   NMEA2000.ParseMessages();
 }
 
-#define BatUpdatePeriod 1000
+#define dataUpdatePeriod 1000
 
-void SendN2kBattery() {
-  static unsigned long TempUpdated=millis();
+void SendN2kEngineData(double fuelRate) {
   tN2kMsg N2kMsg;
 
-  if ( TempUpdated+BatUpdatePeriod<millis() ) {
-    TempUpdated=millis();
-    SetN2kDCBatStatus(N2kMsg,1,13.87,5.12,35.12,1);
-    NMEA2000.SendMsg(N2kMsg);
-    SetN2kDCStatus(N2kMsg,1,1,N2kDCt_Battery,56,92,38500,0.012);
-    NMEA2000.SendMsg(N2kMsg);
-    SetN2kBatConf(N2kMsg,1,N2kDCbt_Gel,N2kDCES_Yes,N2kDCbnv_12v,N2kDCbc_LeadAcid,AhToCoulomb(420),53,1.251,75);
-    NMEA2000.SendMsg(N2kMsg);
-    Serial.print(millis()); Serial.println(", Battery send ready");
-  }
+  SetN2kEngineDynamicParam(N2kMsg, 1, 0, 0, 0, 0, fuelRate, 0);
+  NMEA2000.SendMsg(N2kMsg);
+  Serial.println("Sent fuel rate.");
+  // SetN2kDCBatStatus(N2kMsg,1,13.87,5.12,35.12,1);
+  // NMEA2000.SendMsg(N2kMsg);
+  // SetN2kDCStatus(N2kMsg,1,1,N2kDCt_Battery,56,92,38500,0.012);
+  // NMEA2000.SendMsg(N2kMsg);
+  // SetN2kBatConf(N2kMsg,1,N2kDCbt_Gel,N2kDCES_Yes,N2kDCbnv_12v,N2kDCbc_LeadAcid,AhToCoulomb(420),53,1.251,75);
+  // NMEA2000.SendMsg(N2kMsg);
+  // Serial.print(millis()); Serial.println(", Battery send ready");
 }
