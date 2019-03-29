@@ -2,8 +2,8 @@
     "programmer": "AVRISP mkII",
     "board": "esp32:esp32:esp32doit-devkit-v1",
     "configuration": "FlashFreq=80,UploadSpeed=921600,DebugLevel=none",
-    "sketch": "BatteryMonitor.ino",
-    "output": "./build",
+    "sketch": "FuelFlow.ino",
+    "output": "./.build",
     "debugger": "jlink",
     "port": "COM3"
 }
