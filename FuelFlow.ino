@@ -40,16 +40,26 @@ const char BatteryMonitorManufacturerInformation [] PROGMEM = "André Biseth, an
 const char BatteryMonitorInstallationDescription1 [] PROGMEM = "Fuel Flow Monitor"; 
 const char BatteryMonitorInstallationDescription2 [] PROGMEM = "Monitoring fuel flow for diesel engine with return fuel line."; 
 
-volatile int frequency; //measuring the rising edges of the signal
-int interruptPin = 25;    //The pin location of the sensor
+volatile int frequencyIn; //measuring the rising edges of the signal
+volatile int frequencyOut; //measuring the rising edges of the signal
+int flowInPin = 25;    //The pin location of the input sensor
+int flowOutPin = 26;    //The pin location of the output sensor
 
-portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
+portMUX_TYPE muxIn = portMUX_INITIALIZER_UNLOCKED;
+portMUX_TYPE muxOut = portMUX_INITIALIZER_UNLOCKED;
 
-void IRAM_ATTR handleInterrupt()     //This is the function that the interupt calls 
+void IRAM_ATTR flowInInterrupt()     //This is the function that the interupt calls 
 { 
-  portENTER_CRITICAL_ISR(&mux);
-  frequency++;  //This function measures the rising and falling edge of the hall effect sensors signal
-  portEXIT_CRITICAL_ISR(&mux);
+  portENTER_CRITICAL_ISR(&muxIn);
+  frequencyIn++;  //This function measures the rising and falling edge of the hall effect sensors signal
+  portEXIT_CRITICAL_ISR(&muxIn);
+}
+
+void IRAM_ATTR flowOutInterrupt()     //This is the function that the interupt calls 
+{ 
+  portENTER_CRITICAL_ISR(&muxOut);
+  frequencyOut++;  //This function measures the rising and falling edge of the hall effect sensors signal
+  portEXIT_CRITICAL_ISR(&muxOut);
 }
 
 void setup() {
@@ -67,8 +77,8 @@ void setup() {
                                
   // Uncomment 3 rows below to see, what device will send to bus                           
    Serial.begin(115200);
-   NMEA2000.SetForwardStream(&Serial);
-   NMEA2000.SetForwardType(tNMEA2000::fwdt_Text);     // Show in clear text. Leave uncommented for default Actisense format.
+   //NMEA2000.SetForwardStream(&Serial);
+   //NMEA2000.SetForwardType(tNMEA2000::fwdt_Text);     // Show in clear text. Leave uncommented for default Actisense format.
 
   // If you also want to see all traffic on the bus use N2km_ListenAndNode instead of N2km_NodeOnly below
   NMEA2000.SetMode(tNMEA2000::N2km_ListenAndNode,22);
@@ -78,28 +88,54 @@ void setup() {
 //  NMEA2000.SetN2kCANMsgBufSize(2);                    // For this simple example, limit buffer size to 2, since we are only sending data
   NMEA2000.Open();
 
-  pinMode(interruptPin, INPUT_PULLUP); //initializes digital pin 2 as an input
-  attachInterrupt(digitalPinToInterrupt(interruptPin), handleInterrupt, FALLING); //and the interrupt is attached
+  pinMode(flowInPin, INPUT_PULLUP); //initializes digital pin 2 as an input
+  attachInterrupt(digitalPinToInterrupt(flowInPin), flowInInterrupt, FALLING); //and the interrupt is attached
+  pinMode(flowOutPin, INPUT_PULLUP); //initializes digital pin 2 as an input
+  attachInterrupt(digitalPinToInterrupt(flowOutPin), flowOutInterrupt, FALLING); //and the interrupt is attached
 }
 
 unsigned long previousMillis = 0;
 unsigned long interval = 1000;
-unsigned long pulses = 0;
-float pulsesPerLiter = 300.0; // Pulses per liter.
+float pulsesPerLiterIn = 153.0; // Pulses per liter In.
+float pulsesPerLiterOut = 185.0; // Pulses per liter Out.
+float mlpIn = 1000.0 / pulsesPerLiterIn;
+float mlpOut = 1000.0 / pulsesPerLiterOut;
 
 void loop() {
   if (millis() - previousMillis > interval) {
-    portENTER_CRITICAL_ISR(&mux);
-    float calc = (((((float)frequency * (pulsesPerLiter / 1000.0)) * 60.0) * 60.0) / 1000.0);
-    pulses += frequency;
-    frequency = 0;                  //Set NbTops to 0 ready for calculations
-    portEXIT_CRITICAL_ISR(&mux);
+    unsigned long tmpFreqIn = 0;
+    unsigned long tmpFreqOut = 0;
+    
+    portENTER_CRITICAL_ISR(&muxIn);
+    tmpFreqIn = frequencyIn;
+    frequencyIn = 0;                  //Set NbTops to 0 ready for calculations
+    portEXIT_CRITICAL_ISR(&muxIn);
+
+    portENTER_CRITICAL_ISR(&muxOut);
+    tmpFreqOut = frequencyOut;
+    frequencyOut = 0;                  //Set NbTops to 0 ready for calculations
+    portEXIT_CRITICAL_ISR(&muxOut);
+
     previousMillis = millis();
+    
+    //float calc = (((((float)tmpFreq * (pulsesPerLiter / 1000.0)) * 60.0) * 60.0) / 1000.0);
+
+    float calcIn = (((mlpIn * tmpFreqIn) * 60) * 60); // mL/hr
+    calcIn = calcIn / 1000.0; // L/hr
+    float calcOut = (((mlpOut * tmpFreqOut) * 60) * 60); // mL/hr
+    calcOut = calcOut / 1000.0; // L/hr
+    float calc = calcIn - calcOut;
 
     SendN2kEngineData(calc);
 
-    Serial.print (pulses, DEC); //Prints the number calculated above
-    Serial.println (" pulses"); //Prints "L/hour" and returns a  new line
+    Serial.print (mlpIn, DEC); //Prints the number calculated above
+    Serial.println (" ml/P in"); //Prints "L/hour" and returns a  new line
+    Serial.print (mlpOut, DEC); //Prints the number calculated above
+    Serial.println (" ml/P out"); //Prints "L/hour" and returns a  new line
+    Serial.print (tmpFreqIn, DEC); //Prints the number calculated above
+    Serial.println (" Hz in"); //Prints "L/hour" and returns a  new line
+    Serial.print (tmpFreqOut, DEC); //Prints the number calculated above
+    Serial.println (" Hz out"); //Prints "L/hour" and returns a  new line
     Serial.print (calc, DEC); //Prints the number calculated above
     Serial.println (" L/hour"); //Prints "L/hour" and returns a  new line
   }
