@@ -98,8 +98,10 @@ void setup()
   attachInterrupt(digitalPinToInterrupt(flowOutPin), flowOutInterrupt, FALLING); //and the interrupt is attached
 }
 
-unsigned long previousMillis = 0;
+unsigned long prevMillis = 0;
+unsigned long prevMillisAvg = 0;
 unsigned long interval = 1000;
+unsigned long intervalAvg = 3000;
 float pulsesPerLiterIn = 153.0;            // Pulses per liter In.
 float pulsesPerLiterOut = 185.0;           // Pulses per liter Out.
 float mlpIn = 1000.0 / pulsesPerLiterIn;   // = 6.5359
@@ -114,12 +116,16 @@ void SendN2kEngineData(double fuelRate)
   Serial.println("Sent fuel rate.");
 }
 
+unsigned long tmpFreqIn = 0;
+unsigned long tmpFreqOut = 0;
+unsigned long tmpFreqAvgIn = 0;
+unsigned long tmpFreqAvgOut = 0;
+
 void loop()
 {
-  if (millis() - previousMillis > interval)
+  if (millis() - prevMillis > interval)
   {
-    unsigned long tmpFreqIn = 0;
-    unsigned long tmpFreqOut = 0;
+    prevMillis = millis();
 
     portENTER_CRITICAL_ISR(&muxIn);
     tmpFreqIn = freqIn;
@@ -131,12 +137,33 @@ void loop()
     freqOut = 0; //Set frequencyOut to 0 ready for calculations
     portEXIT_CRITICAL_ISR(&muxOut);
 
-    previousMillis = millis();
+    // Trying to calculate a more precise value.
+    if (millis() - prevMillisAvg > intervalAvg)
+    {
+      prevMillisAvg = millis();
+      portENTER_CRITICAL_ISR(&muxIn);
+      tmpFreqAvgIn = freqAvgIn;
+      freqAvgIn = 0; //Set frequencyIn to 0 ready for calculations
+      portEXIT_CRITICAL_ISR(&muxIn);
 
-    float calcIn = (((mlpIn * tmpFreqIn) * 60) * 60);    // mL/hr
-    calcIn = calcIn / 1000.0;                            // L/hr
-    float calcOut = (((mlpOut * tmpFreqOut) * 60) * 60); // mL/hr
-    calcOut = calcOut / 1000.0;                          // L/hr
+      portENTER_CRITICAL_ISR(&muxOut);
+      tmpFreqAvgOut = freqAvgOut;
+      freqAvgOut = 0; //Set frequencyOut to 0 ready for calculations
+      portEXIT_CRITICAL_ISR(&muxOut);
+    }
+
+    if (tmpFreqIn <= 0.0)
+      tmpFreqIn = tmpFreqAvgIn / (intervalAvg / 1000.0);
+    if (tmpFreqOut <= 0.0)
+      tmpFreqIn = tmpFreqAvgIn / (intervalAvg / 1000.0);
+
+    float calcIn = 0.0;
+    float calcOut = 0.0;
+
+    calcIn = (((mlpIn * tmpFreqIn) * 60.0) * 60.0);    // mL/hr
+    calcIn = calcIn / 1000.0;                          // L/hr
+    calcOut = (((mlpOut * tmpFreqOut) * 60.0) * 60.0); // mL/hr
+    calcOut = calcOut / 1000.0;                        // L/hr
     float calc = calcIn - calcOut;
 
     SendN2kEngineData(calc);
