@@ -200,15 +200,15 @@ void loop()
 
     SendN2kEngineData(calc);
 
-    Serial.print(mlppIn, DEC);          //Prints the number calculated above
+    Serial.print(mlppIn, 2);            //Prints the number calculated above
     Serial.println(" ml/P in");         //Prints "L/hour" and returns a  new line
     Serial.print(tmpMsElapsedIn, DEC);  //Prints the number calculated above
     Serial.println(" ms elapsed in");   //Prints "L/hour" and returns a  new line
-    Serial.print(mlppOut, DEC);         //Prints the number calculated above
+    Serial.print(mlppOut, 2);           //Prints the number calculated above
     Serial.println(" ml/P out");        //Prints "L/hour" and returns a  new line
     Serial.print(tmpMsElapsedOut, DEC); //Prints the number calculated above
     Serial.println(" ms elapsed out");  //Prints "L/hour" and returns a  new line
-    Serial.print(calc, DEC);            //Prints the number calculated above
+    Serial.print(calc, 2);              //Prints the number calculated above
     Serial.println(" L/hour");          //Prints "L/hour" and returns a  new line
   }
 
