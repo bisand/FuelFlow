@@ -161,7 +161,7 @@ void loop()
     portENTER_CRITICAL_ISR(&muxIn);
     tmpPulsesIn = pulsesIn;
     pulsesIn = 0;
-    if(msElapsedIn > MAX_ELAPSED_MS)
+    if(millis() - msLastIn > MAX_ELAPSED_MS)
       msElapsedIn = MAX_ELAPSED_MS;
     tmpMsElapsedIn = msElapsedIn;
     portEXIT_CRITICAL_ISR(&muxIn);
@@ -169,7 +169,7 @@ void loop()
     portENTER_CRITICAL_ISR(&muxOut);
     tmpPulsesOut = pulsesOut;
     pulsesOut = 0;
-    if(msElapsedOut > MAX_ELAPSED_MS)
+    if(millis() - msLastIn > MAX_ELAPSED_MS)
       msElapsedOut = MAX_ELAPSED_MS;
     tmpMsElapsedOut = msElapsedOut;
     portEXIT_CRITICAL_ISR(&muxOut);
@@ -202,17 +202,14 @@ void loop()
       calcOut = ((calcOut * 60.0) * 60.0) / 1000.0;            // L/hr
     }
 
-    if (tmpMsElapsedIn > (MAX_ELAPSED_MS / 4))
-      calcIn = calcIn - (calcIn / 4);
+    // TODO: Rewrite this to ramp down every second after 1.0 L/hr. After about 21 seconds. It will seem more reliable. 
     if (tmpMsElapsedIn > (MAX_ELAPSED_MS / 2))
-      calcIn = calcIn - (calcIn / 2);
+      calcIn = calcIn - (calcIn / 2.0);
     if (tmpMsElapsedIn == MAX_ELAPSED_MS)
       calcIn = 0.0;
 
-    if (tmpMsElapsedOut > (MAX_ELAPSED_MS / 4))
-      calcOut = calcOut - (calcOut / 4);
     if (tmpMsElapsedOut > (MAX_ELAPSED_MS / 2))
-      calcOut = calcOut - (calcOut / 2);
+      calcOut = calcOut - (calcOut / 2.0);
     if (tmpMsElapsedOut == MAX_ELAPSED_MS)
       calcOut = 0.0;
 
