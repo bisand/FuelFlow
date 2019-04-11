@@ -26,8 +26,8 @@ const tNMEA2000::tProductInformation BatteryMonitorProductInformation PROGMEM = 
     1300,                // N2kVersion
     1001,                // Manufacturer's product code
     "Fuel Flow Monitor", // Manufacturer's Model ID
-    "0.1.0",             // Manufacturer's Software version code
-    "0.1.0",             // Manufacturer's Model version
+    "0.1.1",             // Manufacturer's Software version code
+    "0.1.1",             // Manufacturer's Model version
     "00000001",          // Manufacturer's Model serial code
     0,                   // SertificationLevel
     1                    // LoadEquivalency
@@ -42,37 +42,50 @@ const char BatteryMonitorInstallationDescription2[] PROGMEM = "Monitoring fuel f
 int flowInPin = 25;  //The pin location of the input sensor
 int flowOutPin = 26; //The pin location of the output sensor
 
-volatile unsigned int freqIn = 0;  //measuring the falling edges of the signal
-volatile unsigned int freqOut = 0; //measuring the falling edges of the signal
+volatile unsigned int pulsesIn = 0;  //Pulses from incoming fuel flow.
+volatile unsigned int pulsesOut = 0; //Pulses from outgoing fuel flow.
 
-volatile unsigned long msLastIn = 0;
-volatile unsigned long msLastOut = 0;
-volatile unsigned long msElapsedIn = 0;
-volatile unsigned long msElapsedOut = 0;
+volatile unsigned long msLastIn = 0;  // Last registered milliseconds from inbound interrupt.
+volatile unsigned long msLastOut = 0; // Last registered milliseconds from outbound interrupt.
+volatile unsigned long msElapsedIn = ULONG_MAX;   // Milliseconds elapsed since last inbound interrupt.
+volatile unsigned long msElapsedOut = ULONG_MAX;  // Milliseconds elapsed since last outbound interrupt.
 
+// Mutex used by interrupt 
 portMUX_TYPE muxIn = portMUX_INITIALIZER_UNLOCKED;
 portMUX_TYPE muxOut = portMUX_INITIALIZER_UNLOCKED;
 
-void IRAM_ATTR flowInInterrupt() //This is the function that the interupt calls
+/*
+  Interrupt for the incoming fuel flow.
+  This function is triggered on the falling edge of the hall effect sensors signal
+*/
+void IRAM_ATTR flowInInterrupt()
 {
   portENTER_CRITICAL_ISR(&muxIn);
-  freqIn++; //This function measures the rising and falling edge of the hall effect sensors signal
+  pulsesIn++; 
   unsigned long ms = millis();
   msElapsedIn = ms - msLastIn;
   msLastIn = ms;
   portEXIT_CRITICAL_ISR(&muxIn);
 }
 
-void IRAM_ATTR flowOutInterrupt() //This is the function that the interupt calls
+/*
+  Interrupt for the outgoing fuel flow.
+  This function is triggered on the falling edge of the hall effect sensors signal
+*/
+void IRAM_ATTR flowOutInterrupt()
 {
   portENTER_CRITICAL_ISR(&muxOut);
-  freqOut++; //This function measures the rising and falling edge of the hall effect sensors signal
+  pulsesOut++;
   unsigned long ms = millis();
   msElapsedOut = ms - msLastOut;
   msLastOut = ms;
   portEXIT_CRITICAL_ISR(&muxOut);
 }
 
+/*
+  The setup
+  initializes libraries and values.
+*/
 void setup()
 {
   // Set Product information
@@ -108,11 +121,14 @@ void setup()
 unsigned long prevMillis = 0;
 unsigned long interval = 1000;
 
-float pulsesPerLiterIn = 153.0;             // Pulses per liter In.
-float pulsesPerLiterOut = 185.0;            // Pulses per liter Out.
-float mlppIn = 1000.0 / pulsesPerLiterIn;   // Milliliters per pulse = 6.5359
-float mlppOut = 1000.0 / pulsesPerLiterOut; // Milliliters per pulse = 5.4054
+float pulsesPerLiterIn = 169.0;             // Pulses per liter In (old=153)
+float pulsesPerLiterOut = 169.0;            // Pulses per liter Out (old=185)
+float mlppIn = 1000.0 / pulsesPerLiterIn;   // Milliliters per pulse = 5.9172
+float mlppOut = 1000.0 / pulsesPerLiterOut; // Milliliters per pulse = 5.9172
 
+/*
+  Send NMEA 2000 engine data out on the bus.
+*/
 void SendN2kEngineData(double fuelRate)
 {
   tN2kMsg N2kMsg;
@@ -122,14 +138,18 @@ void SendN2kEngineData(double fuelRate)
   Serial.println("Sent fuel rate.");
 }
 
-unsigned long tmpFreqIn = 0;
-unsigned long tmpFreqOut = 0;
+unsigned long tmpPulsesIn = 0;
+unsigned long tmpPulsesOut = 0;
 
 unsigned long tmpMsElapsedIn = 0;
 unsigned long tmpMsElapsedOut = 0;
 
 #define CALC_FREQ false
 
+/*
+  The loop
+  The continuously running loop
+*/
 void loop()
 {
   if (millis() - prevMillis > interval)
@@ -137,49 +157,59 @@ void loop()
     prevMillis = millis();
 
     portENTER_CRITICAL_ISR(&muxIn);
-    tmpFreqIn = freqIn;
-    freqIn = 0; //Set frequencyIn to 0 ready for calculations
+    tmpPulsesIn = pulsesIn;
+    pulsesIn = 0;
     tmpMsElapsedIn = msElapsedIn;
     portEXIT_CRITICAL_ISR(&muxIn);
 
     portENTER_CRITICAL_ISR(&muxOut);
-    tmpFreqOut = freqOut;
-    freqOut = 0; //Set frequencyOut to 0 ready for calculations
+    tmpPulsesOut = pulsesOut;
+    pulsesOut = 0;
     tmpMsElapsedOut = msElapsedOut;
     portEXIT_CRITICAL_ISR(&muxOut);
+
+    // Prevent division by zero.
+    if (tmpMsElapsedIn == 0)
+      tmpMsElapsedIn = ULONG_MAX;
+
+    // Prevent division by zero.
+    if (tmpMsElapsedOut == 0)
+      tmpMsElapsedOut = ULONG_MAX;
 
     float calcIn = 0.0;
     float calcOut = 0.0;
 
-    if (CALC_FREQ)
+    if (CALC_FREQ || tmpPulsesIn > 5)
     {
-      calcIn = (((mlppIn * tmpFreqIn) * 60.0) * 60.0);    // mL/hr
+      // Calculates flow by frequency. Works better for higher flow rates.
+      calcIn = (((mlppIn * tmpPulsesIn) * 60.0) * 60.0);    // mL/hr
       calcIn = calcIn / 1000.0;                           // L/hr
-      calcOut = (((mlppOut * tmpFreqOut) * 60.0) * 60.0); // mL/hr
+      calcOut = (((mlppOut * tmpPulsesOut) * 60.0) * 60.0); // mL/hr
       calcOut = calcOut / 1000.0;                         // L/hr
     }
-    else
+    else if (msLastIn > 0 && msLastOut > 0)
     {
-      calcIn = (mlppIn / ((float)tmpMsElapsedIn / 1000.0));     // mL/s
-      calcIn = ((calcIn * 60.0) * 60.0);                        // L/hr
-      calcOut = (mlppOut / ((float)tmpMsElapsedOut / 1000.0));  // mL/s
-      calcOut = ((calcOut * 60.0) * 60.0);                      // L/hr
+      // Calculates flow by elapsed milliseconds. Works better on lower flow rates.
+      calcIn = (mlppIn / ((float)tmpMsElapsedIn / 1000.0));    // mL/s
+      calcIn = ((calcIn * 60.0) * 60.0);                       // L/hr
+      calcOut = (mlppOut / ((float)tmpMsElapsedOut / 1000.0)); // mL/s
+      calcOut = ((calcOut * 60.0) * 60.0);                     // L/hr
     }
 
     float calc = calcIn - calcOut;
 
     SendN2kEngineData(calc);
 
-    Serial.print(mlppIn, DEC);     //Prints the number calculated above
-    Serial.println(" ml/P in");    //Prints "L/hour" and returns a  new line
-    Serial.print(mlppOut, DEC);    //Prints the number calculated above
-    Serial.println(" ml/P out");   //Prints "L/hour" and returns a  new line
-    Serial.print(tmpFreqIn, DEC);  //Prints the number calculated above
-    Serial.println(" Hz in");      //Prints "L/hour" and returns a  new line
-    Serial.print(tmpFreqOut, DEC); //Prints the number calculated above
-    Serial.println(" Hz out");     //Prints "L/hour" and returns a  new line
-    Serial.print(calc, DEC);       //Prints the number calculated above
-    Serial.println(" L/hour");     //Prints "L/hour" and returns a  new line
+    Serial.print(mlppIn, DEC);          //Prints the number calculated above
+    Serial.println(" ml/P in");         //Prints "L/hour" and returns a  new line
+    Serial.print(tmpMsElapsedIn, DEC);  //Prints the number calculated above
+    Serial.println(" ms elapsed in");   //Prints "L/hour" and returns a  new line
+    Serial.print(mlppOut, DEC);         //Prints the number calculated above
+    Serial.println(" ml/P out");        //Prints "L/hour" and returns a  new line
+    Serial.print(tmpMsElapsedOut, DEC); //Prints the number calculated above
+    Serial.println(" ms elapsed out");  //Prints "L/hour" and returns a  new line
+    Serial.print(calc, DEC);            //Prints the number calculated above
+    Serial.println(" L/hour");          //Prints "L/hour" and returns a  new line
   }
 
   NMEA2000.ParseMessages();
