@@ -39,6 +39,8 @@ const char BatteryMonitorManufacturerInformation[] PROGMEM = "André Biseth, and
 const char BatteryMonitorInstallationDescription1[] PROGMEM = "Fuel Flow Monitor";
 const char BatteryMonitorInstallationDescription2[] PROGMEM = "Monitoring fuel flow for diesel engine with return fuel line.";
 
+#define MAX_ELAPSED_MS 60000
+
 int flowInPin = 25;  //The pin location of the input sensor
 int flowOutPin = 26; //The pin location of the output sensor
 
@@ -47,8 +49,8 @@ volatile unsigned int pulsesOut = 0; //Pulses from outgoing fuel flow.
 
 volatile unsigned long msLastIn = 0;  // Last registered milliseconds from inbound interrupt.
 volatile unsigned long msLastOut = 0; // Last registered milliseconds from outbound interrupt.
-volatile unsigned long msElapsedIn = ULONG_MAX;   // Milliseconds elapsed since last inbound interrupt.
-volatile unsigned long msElapsedOut = ULONG_MAX;  // Milliseconds elapsed since last outbound interrupt.
+volatile unsigned long msElapsedIn = MAX_ELAPSED_MS;   // Milliseconds elapsed since last inbound interrupt.
+volatile unsigned long msElapsedOut = MAX_ELAPSED_MS;  // Milliseconds elapsed since last outbound interrupt.
 
 // Mutex used by interrupt 
 portMUX_TYPE muxIn = portMUX_INITIALIZER_UNLOCKED;
@@ -159,22 +161,26 @@ void loop()
     portENTER_CRITICAL_ISR(&muxIn);
     tmpPulsesIn = pulsesIn;
     pulsesIn = 0;
+    if(msElapsedIn > MAX_ELAPSED_MS)
+      msElapsedIn = MAX_ELAPSED_MS;
     tmpMsElapsedIn = msElapsedIn;
     portEXIT_CRITICAL_ISR(&muxIn);
 
     portENTER_CRITICAL_ISR(&muxOut);
     tmpPulsesOut = pulsesOut;
     pulsesOut = 0;
+    if(msElapsedOut > MAX_ELAPSED_MS)
+      msElapsedOut = MAX_ELAPSED_MS;
     tmpMsElapsedOut = msElapsedOut;
     portEXIT_CRITICAL_ISR(&muxOut);
 
     // Prevent division by zero.
     if (tmpMsElapsedIn == 0)
-      tmpMsElapsedIn = ULONG_MAX;
+      tmpMsElapsedIn = MAX_ELAPSED_MS;
 
     // Prevent division by zero.
     if (tmpMsElapsedOut == 0)
-      tmpMsElapsedOut = ULONG_MAX;
+      tmpMsElapsedOut = MAX_ELAPSED_MS;
 
     float calcIn = 0.0;
     float calcOut = 0.0;
@@ -187,14 +193,28 @@ void loop()
       calcOut = (((mlppOut * tmpPulsesOut) * 60.0) * 60.0); // mL/hr
       calcOut = calcOut / 1000.0;                         // L/hr
     }
-    else if (msLastIn > 0 && msLastOut > 0)
+    else
     {
       // Calculates flow by elapsed milliseconds. Works better on lower flow rates.
       calcIn = (mlppIn / ((float)tmpMsElapsedIn / 1000.0));    // mL/s
-      calcIn = ((calcIn * 60.0) * 60.0);                       // L/hr
+      calcIn = ((calcIn * 60.0) * 60.0) / 1000.0;              // L/hr
       calcOut = (mlppOut / ((float)tmpMsElapsedOut / 1000.0)); // mL/s
-      calcOut = ((calcOut * 60.0) * 60.0);                     // L/hr
+      calcOut = ((calcOut * 60.0) * 60.0) / 1000.0;            // L/hr
     }
+
+    if (tmpMsElapsedIn > (MAX_ELAPSED_MS / 4))
+      calcIn = calcIn - (calcIn / 4);
+    if (tmpMsElapsedIn > (MAX_ELAPSED_MS / 2))
+      calcIn = calcIn - (calcIn / 2);
+    if (tmpMsElapsedIn == MAX_ELAPSED_MS)
+      calcIn = 0.0;
+
+    if (tmpMsElapsedOut > (MAX_ELAPSED_MS / 4))
+      calcOut = calcOut - (calcOut / 4);
+    if (tmpMsElapsedOut > (MAX_ELAPSED_MS / 2))
+      calcOut = calcOut - (calcOut / 2);
+    if (tmpMsElapsedOut == MAX_ELAPSED_MS)
+      calcOut = 0.0;
 
     float calc = calcIn - calcOut;
 
