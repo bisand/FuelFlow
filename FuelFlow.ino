@@ -13,8 +13,8 @@
 //#define N2k_SPI_CS_PIN 5
 //#define USE_N2K_CAN USE_N2K_MCP_CAN // Force to use NMEA2000_mcp
 //#define USE_MCP_CAN_CLOCK_SET 8     // Set bus speed to 8 MHz
-#define ESP32_CAN_TX_PIN GPIO_NUM_16  // Pin 6 (D4) on ESP32
-#define ESP32_CAN_RX_PIN GPIO_NUM_4   // Pin 5 (RX2) on ESP32
+//#define ESP32_CAN_TX_PIN GPIO_NUM_16  // Pin 6 (D4) on ESP32
+//#define ESP32_CAN_RX_PIN GPIO_NUM_4   // Pin 5 (RX2) on ESP32
 
 #include "DHTesp.h"
 #include "NMEA2000_CAN.h" // This will automatically choose right CAN library and create suitable NMEA2000 object
