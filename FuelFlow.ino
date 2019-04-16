@@ -226,7 +226,7 @@ void loop()
   {
     prevMillisTemp = millis();
 
-    float temperature;
+    double temperature;
     if (getTemperature(temperature))
     {
       Serial.print(temperature, 2);
@@ -283,7 +283,7 @@ float adjustCalculation(float calc, float mlpp, unsigned long elapsed)
   return calc;
 }
 
-bool getTemperature(float &temperature)
+bool getTemperature(double &temperature)
 {
   // Reading temperature for humidity takes about 250 milliseconds!
   // Sensor readings may also be up to 2 seconds 'old' (it's a very slow sensor)
@@ -294,6 +294,6 @@ bool getTemperature(float &temperature)
   {
     return false;
   }
-  temperature = newValues.temperature;
+  temperature = (double)newValues.temperature;
   return true;
 }
