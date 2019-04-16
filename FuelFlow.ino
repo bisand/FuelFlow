@@ -157,8 +157,8 @@ void loop()
   {
     prevMillis = millis();
 
-    float loopElapsedIn = 0.0;
-    float loopElapsedOut = 0.0;
+    unsigned long loopElapsedIn = 0;
+    unsigned long loopElapsedOut = 0;
 
     portENTER_CRITICAL_ISR(&muxIn);
     tmpPulsesIn = pulsesIn;
@@ -186,16 +186,16 @@ void loop()
     if (tmpMsElapsedOut == 0)
       tmpMsElapsedOut = MAX_ELAPSED_MS;
 
-    float calcIn = 0.0;
-    float calcOut = 0.0;
+    double calcIn = 0.0;
+    double calcOut = 0.0;
 
     if (CALC_FREQ || tmpPulsesIn > 5)
     {
       // Calculates flow by frequency. Works better for higher flow rates.
-      calcIn = (((mlppIn * tmpPulsesIn) * 60.0) * 60.0);    // mL/hr
-      calcIn = calcIn / 1000.0;                             // L/hr
-      calcOut = (((mlppOut * tmpPulsesOut) * 60.0) * 60.0); // mL/hr
-      calcOut = calcOut / 1000.0;                           // L/hr
+      calcIn = ((static_cast<double>(mlppIn * tmpPulsesIn) * 60.0) * 60.0);    // mL/hr
+      calcIn = calcIn / 1000.0;                                                // L/hr
+      calcOut = ((static_cast<double>(mlppOut * tmpPulsesOut) * 60.0) * 60.0); // mL/hr
+      calcOut = calcOut / 1000.0;                                              // L/hr
     }
     else
     {
@@ -206,7 +206,7 @@ void loop()
       calcOut = adjustCalculation(calcOut, mlppOut, loopElapsedOut);
     }
 
-    float calc = calcIn - calcOut;
+    double calc = static_cast<double>(calcIn - calcOut);
 
     SendN2kEngineData(calc);
 
@@ -260,26 +260,22 @@ void SendN2kTemperatureData(double temperature)
   Serial.println("Sent temperature.");
 }
 
-float calculateFlow(float mlpp, unsigned long elapsed)
+double calculateFlow(float mlpp, unsigned long elapsed)
 {
-  float calc = 0.0;
-  calc = (mlpp / ((float)elapsed / 1000.0)); // mL/s
-  calc = ((calc * 60.0) * 60.0) / 1000.0;    // L/hr
+  double calc = 0.0;
+  calc = static_cast<double>(mlpp / (static_cast<double>(elapsed) / 1000.0)); // mL/s
+  calc = static_cast<double>(((calc * 60.0) * 60.0) / 1000.0);                // L/hr
   return calc;
 }
 
-float adjustCalculation(float calc, float mlpp, unsigned long elapsed)
+double adjustCalculation(double calc, float mlpp, unsigned long elapsed)
 {
-  if (tmpMsElapsedIn >= MAX_ELAPSED_MS)
+  if (elapsed >= MAX_ELAPSED_MS)
     return 0.0;
 
   if (elapsed > (MAX_ELAPSED_MS / 2))
-  {
-    float clc = 0.0;
-    clc = (mlpp / ((float)elapsed / 1000.0)); // mL/s
-    clc = ((calc * 60.0) * 60.0) / 1000.0;    // L/hr
-    return clc;
-  }
+    return calculateFlow(mlpp, elapsed);
+
   return calc;
 }
 
@@ -294,6 +290,6 @@ bool getTemperature(double &temperature)
   {
     return false;
   }
-  temperature = (double)newValues.temperature;
+  temperature = static_cast<double>(newValues.temperature);
   return true;
 }
