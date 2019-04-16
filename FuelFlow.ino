@@ -50,6 +50,7 @@ int flowInPin = 25;  //The pin location of the input sensor
 int flowOutPin = 26; //The pin location of the output sensor
 int dhtPin = 13;
 
+volatile unsigned int pulsesTot = 0; //Pulse count to calibrate fuel flow.
 volatile unsigned int pulsesIn = 0;  //Pulses from incoming fuel flow.
 volatile unsigned int pulsesOut = 0; //Pulses from outgoing fuel flow.
 
@@ -69,6 +70,7 @@ portMUX_TYPE muxOut = portMUX_INITIALIZER_UNLOCKED;
 void IRAM_ATTR flowInInterrupt()
 {
   portENTER_CRITICAL_ISR(&muxIn);
+  pulsesTot++;
   pulsesIn++;
   unsigned long ms = millis();
   msElapsedIn = ms - msLastIn;
@@ -167,6 +169,8 @@ void loop()
     if (loopElapsedIn > MAX_ELAPSED_MS)
       msElapsedIn = MAX_ELAPSED_MS;
     tmpMsElapsedIn = msElapsedIn;
+    if (pulsesTot >= MAXFLOAT)
+      pulsesTot = 0;
     portEXIT_CRITICAL_ISR(&muxIn);
 
     portENTER_CRITICAL_ISR(&muxOut);
@@ -210,16 +214,14 @@ void loop()
 
     SendN2kEngineData(calc);
 
-    Serial.print(mlppIn, 2);            //Prints the number calculated above
-    Serial.println(" ml/P in");         //Prints "L/hour" and returns a  new line
-    Serial.print(tmpMsElapsedIn, DEC);  //Prints the number calculated above
-    Serial.println(" ms elapsed in");   //Prints "L/hour" and returns a  new line
-    Serial.print(mlppOut, 2);           //Prints the number calculated above
-    Serial.println(" ml/P out");        //Prints "L/hour" and returns a  new line
-    Serial.print(tmpMsElapsedOut, DEC); //Prints the number calculated above
-    Serial.println(" ms elapsed out");  //Prints "L/hour" and returns a  new line
-    Serial.print(calc, 2);              //Prints the number calculated above
-    Serial.println(" L/hour");          //Prints "L/hour" and returns a  new line
+    Serial.print(pulsesTot, DEC);      //Prints the number of total pulses since start. Use this value to calibrate sensors.
+    Serial.println(" pulses total");
+    Serial.print(loopElapsedIn, DEC);  //Prints milliseconds elapsed since last inbound pulse detected.
+    Serial.println(" ms elapsed in");
+    Serial.print(loopElapsedOut, DEC); //Prints milliseconds elapsed since last outbound pulse detected.
+    Serial.println(" ms elapsed out");
+    Serial.print(calc, 2);             //Prints L/hour
+    Serial.println(" L/hour");        
   }
 
   if (millis() - prevMillisTemp > intervalTemp)
