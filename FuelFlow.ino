@@ -257,7 +257,7 @@ void SendN2kEngineData(double fuelRate)
 void SendN2kTemperatureData(double temperature)
 {
   tN2kMsg N2kMsg;
-  SetN2kTemperature(N2kMsg, 1, 1, N2kts_EngineRoomTemperature, temperature);
+  SetN2kTemperature(N2kMsg, 1, 1, N2kts_EngineRoomTemperature, CToKelvin(temperature));
   NMEA2000.SendMsg(N2kMsg);
   Serial.println("Sent temperature.");
 }
