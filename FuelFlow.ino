@@ -22,12 +22,9 @@
 
 DHTesp dht;
 
-// List here messages your device will transmit.
-const unsigned long TransmitMessages[] PROGMEM = {127506L, 127508L, 127513L, 0};
-
 // ---  Example of using PROGMEM to hold Product ID.  However, doing this will prevent any updating of
 //      these details outside of recompiling the program.
-const tNMEA2000::tProductInformation BatteryMonitorProductInformation PROGMEM = {
+const tNMEA2000::tProductInformation ProductInformation PROGMEM = {
     1300,                // N2kVersion
     1001,                // Manufacturer's product code
     "Fuel Flow Monitor", // Manufacturer's Model ID
@@ -40,9 +37,9 @@ const tNMEA2000::tProductInformation BatteryMonitorProductInformation PROGMEM = 
 
 // ---  Example of using PROGMEM to hold Configuration information.  However, doing this will prevent any updating of
 //      these details outside of recompiling the program.
-const char BatteryMonitorManufacturerInformation[] PROGMEM = "André Biseth, andre@biseth.net";
-const char BatteryMonitorInstallationDescription1[] PROGMEM = "Fuel Flow Monitor";
-const char BatteryMonitorInstallationDescription2[] PROGMEM = "Monitoring fuel flow for diesel engine with return fuel line.";
+const char ManufacturerInformation[] PROGMEM = "André Biseth, andre@biseth.net";
+const char InstallationDescription1[] PROGMEM = "Fuel Flow Monitor";
+const char InstallationDescription2[] PROGMEM = "Monitoring fuel flow for diesel engine with return fuel line.";
 
 #define MAX_ELAPSED_MS 60000
 
@@ -102,9 +99,9 @@ void setup()
   dht.setup(dhtPin, DHTesp::DHT11);
 
   // Set Product information
-  NMEA2000.SetProductInformation(&BatteryMonitorProductInformation);
+  NMEA2000.SetProductInformation(&ProductInformation);
   // Set Configuration information
-  NMEA2000.SetProgmemConfigurationInformation(BatteryMonitorManufacturerInformation, BatteryMonitorInstallationDescription1, BatteryMonitorInstallationDescription2);
+  NMEA2000.SetProgmemConfigurationInformation(ManufacturerInformation, InstallationDescription1, InstallationDescription2);
   // Set device information
   NMEA2000.SetDeviceInformation(1,   // Unique number. Use e.g. Serial number.
                                 160, // Device function. See codes on http://www.nmea.org/Assets/20120726%20nmea%202000%20class%20&%20function%20codes%20v%202.00.pdf
@@ -221,7 +218,7 @@ void loop()
     Serial.print(loopElapsedOut, DEC); //Prints milliseconds elapsed since last outbound pulse detected.
     Serial.println(" ms elapsed out");
     Serial.print(calc, 2);             //Prints L/hour
-    Serial.println(" L/hour");        
+    Serial.println(" L/hour");
   }
 
   if (millis() - prevMillisTemp > intervalTemp)
