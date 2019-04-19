@@ -133,10 +133,10 @@ unsigned long interval = 1000;
 unsigned long prevMillisTemp = 0;
 unsigned long intervalTemp = 2500;
 
-float pulsesPerLiterIn = 169.0;             // Pulses per liter In (old=153)
-float pulsesPerLiterOut = 169.0;            // Pulses per liter Out (old=185)
-float mlppIn = 1000.0 / pulsesPerLiterIn;   // Milliliters per pulse = 5.9172
-float mlppOut = 1000.0 / pulsesPerLiterOut; // Milliliters per pulse = 5.9172
+float pulsesPerLiterIn = 190.0;             // Pulses per liter In
+float pulsesPerLiterOut = 160.0;            // Pulses per liter Out
+float mlppIn = 1000.0 / pulsesPerLiterIn;   // Milliliters per pulse = 5.2632
+float mlppOut = 1000.0 / pulsesPerLiterOut; // Milliliters per pulse = 6,25
 
 unsigned long tmpPulsesIn = 0;
 unsigned long tmpPulsesOut = 0;
