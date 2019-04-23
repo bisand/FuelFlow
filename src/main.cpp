@@ -111,7 +111,7 @@ void SendSlowN2kEngineData(double fuelRate)
   tN2kMsg N2kMsg;
   SetN2kEngineDynamicParam(N2kMsg, 0, 0, 0, 0, 0, fuelRate, 0);
   NMEA2000.SendMsg(N2kMsg);
-  Serial.println("Sent fuel rate.");
+  //Serial.println("Sent fuel rate.");
 }
 
 /*
@@ -122,7 +122,7 @@ void SendFastN2kEngineData(double rpm)
   tN2kMsg N2kMsg;
   SetN2kEngineParamRapid(N2kMsg, 0, rpm);
   NMEA2000.SendMsg(N2kMsg);
-  Serial.println("Sent rpm.");
+  // Serial.println("Sent rpm.");
 }
 
 /*
@@ -133,7 +133,7 @@ void SendN2kTemperatureData(double temperature)
   tN2kMsg N2kMsg;
   SetN2kTemperature(N2kMsg, 1, 1, N2kts_EngineRoomTemperature, CToKelvin(temperature));
   NMEA2000.SendMsg(N2kMsg);
-  Serial.println("Sent temperature.");
+  // Serial.println("Sent temperature.");
 }
 
 /*
