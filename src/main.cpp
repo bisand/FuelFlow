@@ -152,6 +152,20 @@ bool getTemperature(double &temperature)
   return true;
 }
 
+void printToSerial(float tmp, unsigned long pulses, unsigned long elpsIn, unsigned long elpsOut, float flow)
+{
+  Serial.print(tmp, 2);
+  Serial.println(" °C");
+  Serial.print(pulses, DEC);    //Prints the number of total pulses since start. Use this value to calibrate sensors.
+  Serial.println(" pulses in total");
+  Serial.print(elpsIn, DEC);    //Prints milliseconds elapsed since last inbound pulse detected.
+  Serial.println(" ms elapsed in");
+  Serial.print(elpsOut, DEC);   //Prints milliseconds elapsed since last outbound pulse detected.
+  Serial.println(" ms elapsed out");
+  Serial.print(flow, 2);        //Prints L/hour
+  Serial.println(" L/hour");
+}
+
 /*
   The setup
   initializes libraries and values.
@@ -203,8 +217,8 @@ float mlppOut = 1000.0 / pulsesPerLiterOut; // Milliliters per pulse = 6,25
 
 unsigned long tmpMsLastIn = 0;
 unsigned long tmpMsLastOut = 0;
-unsigned long tmpMsElapsedIn = 0;
-unsigned long tmpMsElapsedOut = 0;
+unsigned long tmpMsElapsedIn = MAX_ELAPSED_MS;
+unsigned long tmpMsElapsedOut = MAX_ELAPSED_MS;
 
 MovingAverageFloat<10> filterIn;
 MovingAverageFloat<10> filterOut;
@@ -277,22 +291,15 @@ void loop()
 
     SendN2kEngineData(fuelFlow);
 
-    Serial.print(temperature, 2);
-    Serial.println(" °C");
-    Serial.print(pulsesTot, DEC); //Prints the number of total pulses since start. Use this value to calibrate sensors.
-    Serial.println(" pulses in total");
-    Serial.print(tmpMsElapsedIn, DEC); //Prints milliseconds elapsed since last inbound pulse detected.
-    Serial.println(" ms elapsed in");
-    Serial.print(tmpMsElapsedOut, DEC); //Prints milliseconds elapsed since last outbound pulse detected.
-    Serial.println(" ms elapsed out");
-    Serial.print(fuelFlow, 2); //Prints L/hour
-    Serial.println(" L/hour");
+    printToSerial(temperature, pulsesTot, tmpMsElapsedIn, tmpMsElapsedOut, fuelFlow);
   }
   else if (millis() - currMillis > interval)
   {
     // Send the same data point every second if it is not updated.
     currMillis = millis();
     SendN2kEngineData(fuelFlow);
+
+    printToSerial(temperature, pulsesTot, tmpMsElapsedIn, tmpMsElapsedOut, fuelFlow);
   }
 
   if (millis() - currMillisTemp > intervalTemp)
