@@ -287,7 +287,7 @@ void loop()
     raOut.addValue(calcOut);
     calcOut = raOut.getAverage();
 
-    fuelFlow = static_cast<float>(calcIn - calcOut);
+    fuelFlow = calcIn - calcOut;
 
     SendN2kEngineData(fuelFlow);
 
