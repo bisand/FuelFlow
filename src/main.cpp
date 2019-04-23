@@ -29,9 +29,9 @@ DHTesp dht;
 const tNMEA2000::tProductInformation ProductInformation PROGMEM = {
     1300,                // N2kVersion
     1001,                // Manufacturer's product code
-    "Fuel Flow Monitor", // Manufacturer's Model ID
-    "0.2.0",             // Manufacturer's Software version code
-    "0.2.0",             // Manufacturer's Model version
+    "Engine Monitor",    // Manufacturer's Model ID
+    "0.3.0",             // Manufacturer's Software version code
+    "0.3.0",             // Manufacturer's Model version
     "00000001",          // Manufacturer's Model serial code
     0,                   // SertificationLevel
     1                    // LoadEquivalency
@@ -40,24 +40,28 @@ const tNMEA2000::tProductInformation ProductInformation PROGMEM = {
 // ---  Example of using PROGMEM to hold Configuration information.  However, doing this will prevent any updating of
 //      these details outside of recompiling the program.
 const char ManufacturerInformation[] PROGMEM = "André Biseth, andre@biseth.net";
-const char InstallationDescription1[] PROGMEM = "Fuel Flow Monitor";
-const char InstallationDescription2[] PROGMEM = "Monitoring fuel flow for diesel engine with return fuel line.";
+const char InstallationDescription1[] PROGMEM = "Engine Monitor";
+const char InstallationDescription2[] PROGMEM = "Monitoring engine parameters.";
 
 #define MAX_ELAPSED_MS 60000
 #define MAX_ELAPSED_HALF_MS (MAX_ELAPSED_MS / 2)
 
 int flowInPin = 25;  //The pin location of the input sensor
 int flowOutPin = 26; //The pin location of the output sensor
+int rpmPin = 27;
 int dhtPin = 13;
 
 volatile unsigned int pulsesTot = 0; //Pulse count to calibrate fuel flow.
-
+volatile unsigned int rpmPulses = 0;
 volatile unsigned long msLastIn = 0;                  // Last registered milliseconds from inbound interrupt.
 volatile unsigned long msLastOut = 0;                 // Last registered milliseconds from outbound interrupt.
 volatile unsigned long msElapsedIn = MAX_ELAPSED_MS;  // Milliseconds elapsed since last inbound interrupt.
 volatile unsigned long msElapsedOut = MAX_ELAPSED_MS; // Milliseconds elapsed since last outbound interrupt.
 
+unsigned int rpmDivisor = 75;
+
 // Mutex used by interrupt
+portMUX_TYPE muxRpm = portMUX_INITIALIZER_UNLOCKED;
 portMUX_TYPE muxIn = portMUX_INITIALIZER_UNLOCKED;
 portMUX_TYPE muxOut = portMUX_INITIALIZER_UNLOCKED;
 
@@ -89,14 +93,36 @@ void IRAM_ATTR flowOutInterrupt()
 }
 
 /*
+  Interrupt for the outgoing fuel flow.
+  This function is triggered on the falling edge of the hall effect sensors signal
+*/
+void IRAM_ATTR rpmInterrupt()
+{
+  portENTER_CRITICAL_ISR(&muxRpm);
+  rpmPulses++;
+  portEXIT_CRITICAL_ISR(&muxRpm);
+}
+
+/*
   Send NMEA 2000 engine data out on the bus.
 */
-void SendN2kEngineData(double fuelRate)
+void SendSlowN2kEngineData(double fuelRate)
 {
   tN2kMsg N2kMsg;
   SetN2kEngineDynamicParam(N2kMsg, 0, 0, 0, 0, 0, fuelRate, 0);
   NMEA2000.SendMsg(N2kMsg);
   Serial.println("Sent fuel rate.");
+}
+
+/*
+  Send NMEA 2000 engine data out on the bus.
+*/
+void SendFastN2kEngineData(double rpm)
+{
+  tN2kMsg N2kMsg;
+  SetN2kEngineParamRapid(N2kMsg, 0, rpm);
+  NMEA2000.SendMsg(N2kMsg);
+  Serial.println("Sent rpm.");
 }
 
 /*
@@ -199,16 +225,20 @@ void setup()
   //  NMEA2000.SetN2kCANMsgBufSize(2);                    // For this simple example, limit buffer size to 2, since we are only sending data
   NMEA2000.Open();
 
-  pinMode(flowInPin, INPUT);                                                     //initializes digital pin 2 as an input
-  attachInterrupt(digitalPinToInterrupt(flowInPin), flowInInterrupt, FALLING);   //and the interrupt is attached
-  pinMode(flowOutPin, INPUT);                                                    //initializes digital pin 2 as an input
-  attachInterrupt(digitalPinToInterrupt(flowOutPin), flowOutInterrupt, FALLING); //and the interrupt is attached
+  pinMode(flowInPin, INPUT);                                                      //initializes digital pin as an input
+  attachInterrupt(digitalPinToInterrupt(flowInPin), flowInInterrupt, FALLING);    //and the interrupt is attached
+  pinMode(flowOutPin, INPUT);                                                     //initializes digital pin as an input
+  attachInterrupt(digitalPinToInterrupt(flowOutPin), flowOutInterrupt, FALLING);  //and the interrupt is attached
+  pinMode(rpmPin, INPUT);                                                         //initializes digital pin as an input
+  attachInterrupt(digitalPinToInterrupt(rpmPin), rpmInterrupt, FALLING);          //and the interrupt is attached
 }
 
 unsigned long currMillis = 0;
 unsigned long interval = 1000;
 unsigned long currMillisTemp = 0;
 unsigned long intervalTemp = 2500;
+unsigned long currMillisRpm = 0;
+unsigned long intervalRpm = 250;
 
 float pulsesPerLiterIn = 190.0;             // Pulses per liter In
 float pulsesPerLiterOut = 160.0;            // Pulses per liter Out
@@ -289,7 +319,7 @@ void loop()
 
     fuelFlow = calcIn - calcOut;
 
-    SendN2kEngineData(fuelFlow);
+    SendSlowN2kEngineData(fuelFlow);
 
     printToSerial(temperature, pulsesTot, tmpMsElapsedIn, tmpMsElapsedOut, fuelFlow);
   }
@@ -297,7 +327,7 @@ void loop()
   {
     // Send the same data point every second if it is not updated.
     currMillis = millis();
-    SendN2kEngineData(fuelFlow);
+    SendSlowN2kEngineData(fuelFlow);
 
     printToSerial(temperature, pulsesTot, tmpMsElapsedIn, tmpMsElapsedOut, fuelFlow);
   }
@@ -310,6 +340,18 @@ void loop()
     {
       SendN2kTemperatureData(temperature);
     }
+  }
+
+  if (millis() - currMillisRpm > intervalRpm)
+  {
+    currMillisRpm = millis();
+
+    unsigned int tmpRpmPulses = rpmPulses;
+    portENTER_CRITICAL_ISR(&muxRpm);
+    rpmPulses = 0;
+    portEXIT_CRITICAL_ISR(&muxRpm);
+    float rpm = (tmpRpmPulses / rpmDivisor) * (60.0 / intervalRpm);
+    SendFastN2kEngineData(rpm);
   }
 
   NMEA2000.ParseMessages();
