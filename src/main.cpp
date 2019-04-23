@@ -213,6 +213,7 @@ RunningAverage raIn(10);
 RunningAverage raOut(10);
 
 float fuelFlow = 0;
+double temperature = 0;
 
 /*
   The loop
@@ -276,6 +277,8 @@ void loop()
 
     SendN2kEngineData(fuelFlow);
 
+    Serial.print(temperature, 2);
+    Serial.println(" °C");
     Serial.print(pulsesTot, DEC); //Prints the number of total pulses since start. Use this value to calibrate sensors.
     Serial.println(" pulses in total");
     Serial.print(tmpMsElapsedIn, DEC); //Prints milliseconds elapsed since last inbound pulse detected.
@@ -296,12 +299,9 @@ void loop()
   {
     currMillisTemp = millis();
 
-    double temperature;
     if (getTemperature(temperature))
     {
       SendN2kTemperatureData(temperature);
-      //Serial.print(temperature, 2);
-      //Serial.println(" C");
     }
   }
 
