@@ -212,6 +212,8 @@ MovingAverageFloat <10> filterOut;
 RunningAverage raIn(10);
 RunningAverage raOut(10);
 
+float calc = 0;
+
 /*
   The loop
   The continuously running loop
@@ -269,7 +271,7 @@ void loop()
     raOut.addValue(calcOut);
     calcOut = raOut.getAverage();
 
-    float calc = static_cast<float>(calcIn - calcOut);
+    calc = static_cast<float>(calcIn - calcOut);
 
     SendN2kEngineData(calc);
 
@@ -281,6 +283,11 @@ void loop()
     Serial.println(" ms elapsed out");
     Serial.print(calc, 2);              //Prints L/hour
     Serial.println(" L/hour");
+    
+  } else if (millis() - currMillis > interval){
+    // Send the same data point every second if it is not updated.
+    currMillis = millis();
+    SendN2kEngineData(calc);
   }
 
   if (millis() - currMillisTemp > intervalTemp)
