@@ -16,6 +16,7 @@
 //#define ESP32_CAN_TX_PIN GPIO_NUM_16  // Pin 6 (D4) on ESP32
 //#define ESP32_CAN_RX_PIN GPIO_NUM_4   // Pin 5 (RX2) on ESP32
 
+#include "MovingAverageFloat.h"
 #include "DHTesp.h"
 #include "NMEA2000_CAN.h" // This will automatically choose right CAN library and create suitable NMEA2000 object
 #include "N2kMessages.h"
@@ -111,18 +112,18 @@ void SendN2kTemperatureData(double temperature)
 /*
   Calculates the flow in L/hr
 */
-double calculateFlow(float mlpp, unsigned long elapsed)
+float calculateFlow(float mlpp, unsigned long elapsed)
 {
   double calc = 0.0;
-  calc = static_cast<double>(mlpp / (static_cast<double>(elapsed) / 1000.0)); // mL/s
-  calc = static_cast<double>(((calc * 60.0) * 60.0) / 1000.0);                // L/hr
+  calc = static_cast<float>(mlpp / (static_cast<float>(elapsed) / 1000.0)); // mL/s
+  calc = static_cast<float>(((calc * 60.0) * 60.0) / 1000.0);                // L/hr
   return calc;
 }
 
 /*
   Adjusts the calculation if the duration between the pulses gets too high.
 */
-double adjustCalculation(double calc, float mlpp, unsigned long elapsed)
+float adjustCalculation(float calc, float mlpp, unsigned long elapsed)
 {
   if (elapsed >= MAX_ELAPSED_MS)
     return 0.0;
@@ -204,6 +205,9 @@ unsigned long tmpMsLastOut = 0;
 unsigned long tmpMsElapsedIn = 0;
 unsigned long tmpMsElapsedOut = 0;
 
+MovingAverageFloat <8> filterIn;
+MovingAverageFloat <8> filterOut;
+
 /*
   The loop
   The continuously running loop
@@ -243,16 +247,19 @@ void loop()
     if (tmpMsElapsedOut == 0)
       tmpMsElapsedOut = MAX_ELAPSED_MS;
 
-    double calcIn = 0.0;
-    double calcOut = 0.0;
+    float calcIn = 0.0;
+    float calcOut = 0.0;
 
     // Calculates flow by elapsed milliseconds. Works better on lower flow rates.
     calcIn = calculateFlow(mlppIn, tmpMsElapsedIn);
     calcIn = adjustCalculation(calcIn, mlppIn, loopElapsedIn);
+    calcIn = filterIn.add(calcIn); // Moving average.
+
     calcOut = calculateFlow(mlppOut, tmpMsElapsedOut);
     calcOut = adjustCalculation(calcOut, mlppOut, loopElapsedOut);
+    calcOut = filterOut.add(calcOut); // Moving average.
 
-    double calc = static_cast<double>(calcIn - calcOut);
+    float calc = static_cast<float>(calcIn - calcOut);
 
     SendN2kEngineData(calc);
 
