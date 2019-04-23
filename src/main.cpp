@@ -115,7 +115,7 @@ void SendN2kTemperatureData(double temperature)
 */
 float calculateFlow(float mlpp, unsigned long elapsed)
 {
-  double calc = 0.0;
+  float calc = 0.0;
   calc = static_cast<float>(mlpp / (static_cast<float>(elapsed) / 1000.0)); // mL/s
   calc = static_cast<float>(((calc * 60.0) * 60.0) / 1000.0);                // L/hr
   return calc;
