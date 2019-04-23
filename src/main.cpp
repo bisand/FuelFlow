@@ -117,7 +117,7 @@ float calculateFlow(float mlpp, unsigned long elapsed)
 {
   float calc = 0.0;
   calc = mlpp / (static_cast<float>(elapsed) / 1000.0); // mL/s
-  calc = ((calc * 60.0) * 60.0) / 1000.0;                // L/hr
+  calc = ((calc * 60.0) * 60.0) / 1000.0;               // L/hr
   return calc;
 }
 
@@ -206,13 +206,13 @@ unsigned long tmpMsLastOut = 0;
 unsigned long tmpMsElapsedIn = 0;
 unsigned long tmpMsElapsedOut = 0;
 
-MovingAverageFloat <10> filterIn;
-MovingAverageFloat <10> filterOut;
+MovingAverageFloat<10> filterIn;
+MovingAverageFloat<10> filterOut;
 
 RunningAverage raIn(10);
 RunningAverage raOut(10);
 
-float calc = 0;
+float fuelFlow = 0;
 
 /*
   The loop
@@ -220,6 +220,7 @@ float calc = 0;
 */
 void loop()
 {
+  // Do calculation if time has changed since last calculation.
   if (msLastIn > tmpMsLastIn || msLastOut > tmpMsLastOut)
   {
     currMillis = millis();
@@ -271,23 +272,24 @@ void loop()
     raOut.addValue(calcOut);
     calcOut = raOut.getAverage();
 
-    calc = static_cast<float>(calcIn - calcOut);
+    fuelFlow = static_cast<float>(calcIn - calcOut);
 
-    SendN2kEngineData(calc);
+    SendN2kEngineData(fuelFlow);
 
-    Serial.print(pulsesTot, DEC);       //Prints the number of total pulses since start. Use this value to calibrate sensors.
+    Serial.print(pulsesTot, DEC); //Prints the number of total pulses since start. Use this value to calibrate sensors.
     Serial.println(" pulses in total");
-    Serial.print(tmpMsElapsedIn, DEC);    //Prints milliseconds elapsed since last inbound pulse detected.
+    Serial.print(tmpMsElapsedIn, DEC); //Prints milliseconds elapsed since last inbound pulse detected.
     Serial.println(" ms elapsed in");
-    Serial.print(tmpMsElapsedOut, DEC);   //Prints milliseconds elapsed since last outbound pulse detected.
+    Serial.print(tmpMsElapsedOut, DEC); //Prints milliseconds elapsed since last outbound pulse detected.
     Serial.println(" ms elapsed out");
-    Serial.print(calc, 2);              //Prints L/hour
+    Serial.print(fuelFlow, 2); //Prints L/hour
     Serial.println(" L/hour");
-    
-  } else if (millis() - currMillis > interval){
+  }
+  else if (millis() - currMillis > interval)
+  {
     // Send the same data point every second if it is not updated.
     currMillis = millis();
-    SendN2kEngineData(calc);
+    SendN2kEngineData(fuelFlow);
   }
 
   if (millis() - currMillisTemp > intervalTemp)
