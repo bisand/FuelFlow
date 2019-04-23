@@ -254,14 +254,41 @@ unsigned long lastMillis = 0;
 unsigned long lastPulsesIn = 0;
 unsigned long lastPulsesOut = 0;
 
-MovingAverageFloat<10> filterIn;
-MovingAverageFloat<10> filterOut;
-
-RunningAverage raIn(10);
-RunningAverage raOut(10);
-
 float fuelFlow = 0;
 double temperature = 0;
+
+MovingAverageFloat<16> filterIn;
+MovingAverageFloat<16> filterOut;
+
+RunningAverage raIn(16);
+RunningAverage raOut(16);
+
+float calculateTotalFuelFlow(unsigned long loopElapsedIn, unsigned long loopElapsedOut)
+{
+    float calcIn = 0.0;
+    float calcOut = 0.0;
+
+    // Calculates flow by elapsed milliseconds. Works better on lower flow rates.
+    calcIn = calculateFlow(mlppIn, tmpMsElapsedIn);
+    calcIn = adjustCalculation(calcIn, mlppIn, loopElapsedIn);
+    // Moving average in.
+    //calcIn = filterIn.add(calcIn);
+    raIn.addValue(calcIn);
+    calcIn = raIn.getAverage();
+
+    calcOut = calculateFlow(mlppOut, tmpMsElapsedOut);
+    calcOut = adjustCalculation(calcOut, mlppOut, loopElapsedOut);
+    // Moving average out.
+    //calcOut = filterOut.add(calcOut);
+    raOut.addValue(calcOut);
+    calcOut = raOut.getAverage();
+
+    float result = calcIn - calcOut;
+    return result;
+}
+
+unsigned long loopElapsedIn = 0;
+unsigned long loopElapsedOut = 0;
 
 /*
   The loop
@@ -276,8 +303,8 @@ void loop()
     prevMsElapsed = currMillis - lastMillis;
     lastMillis = currMillis;
 
-    unsigned long loopElapsedIn = 0;
-    unsigned long loopElapsedOut = 0;
+    loopElapsedIn = 0;
+    loopElapsedOut = 0;
 
     portENTER_CRITICAL_ISR(&muxIn);
     lastPulsesIn = pulsesIn;
@@ -307,25 +334,7 @@ void loop()
     if (tmpMsElapsedOut == 0)
       tmpMsElapsedOut = MAX_ELAPSED_MS;
 
-    float calcIn = 0.0;
-    float calcOut = 0.0;
-
-    // Calculates flow by elapsed milliseconds. Works better on lower flow rates.
-    calcIn = calculateFlow(mlppIn, tmpMsElapsedIn);
-    calcIn = adjustCalculation(calcIn, mlppIn, loopElapsedIn);
-    // Moving average in.
-    //calcIn = filterIn.add(calcIn);
-    raIn.addValue(calcIn);
-    calcIn = raIn.getAverage();
-
-    calcOut = calculateFlow(mlppOut, tmpMsElapsedOut);
-    calcOut = adjustCalculation(calcOut, mlppOut, loopElapsedOut);
-    // Moving average out.
-    //calcOut = filterOut.add(calcOut);
-    raOut.addValue(calcOut);
-    calcOut = raOut.getAverage();
-
-    fuelFlow = calcIn - calcOut;
+    fuelFlow = calculateTotalFuelFlow(loopElapsedIn, loopElapsedIn);
 
     SendSlowN2kEngineData(fuelFlow);
 
@@ -335,6 +344,9 @@ void loop()
   {
     // Send the same data point every second if it is not updated.
     currMillis = millis();
+
+    fuelFlow = calculateTotalFuelFlow(loopElapsedIn, loopElapsedIn);
+
     SendSlowN2kEngineData(fuelFlow);
 
     printToSerial(temperature, pulsesIn, tmpMsElapsedIn, tmpMsElapsedOut, fuelFlow);
