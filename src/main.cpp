@@ -28,8 +28,8 @@ const tNMEA2000::tProductInformation ProductInformation PROGMEM = {
     1300,                // N2kVersion
     1001,                // Manufacturer's product code
     "Fuel Flow Monitor", // Manufacturer's Model ID
-    "0.2.0",             // Manufacturer's Software version code
-    "0.2.0",             // Manufacturer's Model version
+    "0.1.1",             // Manufacturer's Software version code
+    "0.1.1",             // Manufacturer's Model version
     "00000001",          // Manufacturer's Model serial code
     0,                   // SertificationLevel
     1                    // LoadEquivalency
@@ -42,7 +42,6 @@ const char InstallationDescription1[] PROGMEM = "Fuel Flow Monitor";
 const char InstallationDescription2[] PROGMEM = "Monitoring fuel flow for diesel engine with return fuel line.";
 
 #define MAX_ELAPSED_MS 60000
-#define MAX_ELAPSED_HALF_MS (MAX_ELAPSED_MS / 2)
 
 int flowInPin = 25;  //The pin location of the input sensor
 int flowOutPin = 26; //The pin location of the output sensor
@@ -108,9 +107,6 @@ void SendN2kTemperatureData(double temperature)
   Serial.println("Sent temperature.");
 }
 
-/*
-  Calculates the flow in L/hr
-*/
 double calculateFlow(float mlpp, unsigned long elapsed)
 {
   double calc = 0.0;
@@ -119,23 +115,18 @@ double calculateFlow(float mlpp, unsigned long elapsed)
   return calc;
 }
 
-/*
-  Adjusts the calculation if the duration between the pulses gets too high.
-*/
+
 double adjustCalculation(double calc, float mlpp, unsigned long elapsed)
 {
   if (elapsed >= MAX_ELAPSED_MS)
     return 0.0;
 
-  if (elapsed > MAX_ELAPSED_HALF_MS)
+  if (elapsed > (MAX_ELAPSED_MS / 2))
     return calculateFlow(mlpp, elapsed);
 
   return calc;
 }
 
-/*
-  Reads the internal temperature sensor.
-*/
 bool getTemperature(double &temperature)
 {
   // Reading temperature for humidity takes about 250 milliseconds!
@@ -189,9 +180,9 @@ void setup()
   attachInterrupt(digitalPinToInterrupt(flowOutPin), flowOutInterrupt, FALLING); //and the interrupt is attached
 }
 
-unsigned long currMillis = 0;
+unsigned long prevMillis = 0;
 unsigned long interval = 1000;
-unsigned long currMillisTemp = 0;
+unsigned long prevMillisTemp = 0;
 unsigned long intervalTemp = 2500;
 
 float pulsesPerLiterIn = 190.0;             // Pulses per liter In
@@ -199,8 +190,6 @@ float pulsesPerLiterOut = 160.0;            // Pulses per liter Out
 float mlppIn = 1000.0 / pulsesPerLiterIn;   // Milliliters per pulse = 5.2632
 float mlppOut = 1000.0 / pulsesPerLiterOut; // Milliliters per pulse = 6,25
 
-unsigned long tmpMsLastIn = 0;
-unsigned long tmpMsLastOut = 0;
 unsigned long tmpMsElapsedIn = 0;
 unsigned long tmpMsElapsedOut = 0;
 
@@ -210,17 +199,15 @@ unsigned long tmpMsElapsedOut = 0;
 */
 void loop()
 {
-  if (msLastIn > tmpMsLastIn || msLastOut > tmpMsLastOut)
+  if (millis() - prevMillis > interval)
   {
-    currMillis = millis();
-    tmpMsLastIn = msLastIn;
-    tmpMsLastOut = msLastOut;
+    prevMillis = millis();
 
     unsigned long loopElapsedIn = 0;
     unsigned long loopElapsedOut = 0;
 
     portENTER_CRITICAL_ISR(&muxIn);
-    loopElapsedIn = currMillis - msLastIn;
+    loopElapsedIn = prevMillis - msLastIn;
     if (loopElapsedIn > MAX_ELAPSED_MS)
       msElapsedIn = MAX_ELAPSED_MS;
     tmpMsElapsedIn = msElapsedIn;
@@ -228,16 +215,16 @@ void loop()
       pulsesTot = 0;
     portEXIT_CRITICAL_ISR(&muxIn);
 
-    // Prevent division by zero.
-    if (tmpMsElapsedIn == 0)
-      tmpMsElapsedIn = MAX_ELAPSED_MS;
-
     portENTER_CRITICAL_ISR(&muxOut);
-    loopElapsedOut = currMillis - msLastOut;
+    loopElapsedOut = prevMillis - msLastOut;
     if (loopElapsedOut > MAX_ELAPSED_MS)
       msElapsedOut = MAX_ELAPSED_MS;
     tmpMsElapsedOut = msElapsedOut;
     portEXIT_CRITICAL_ISR(&muxOut);
+
+    // Prevent division by zero.
+    if (tmpMsElapsedIn == 0)
+      tmpMsElapsedIn = MAX_ELAPSED_MS;
 
     // Prevent division by zero.
     if (tmpMsElapsedOut == 0)
@@ -256,26 +243,26 @@ void loop()
 
     SendN2kEngineData(calc);
 
-    Serial.print(pulsesTot, DEC);       //Prints the number of total pulses since start. Use this value to calibrate sensors.
+    Serial.print(pulsesTot, DEC);      //Prints the number of total pulses since start. Use this value to calibrate sensors.
     Serial.println(" pulses in total");
-    Serial.print(tmpMsElapsedIn, DEC);    //Prints milliseconds elapsed since last inbound pulse detected.
+    Serial.print(tmpElapsedIn, DEC);  //Prints milliseconds elapsed since last inbound pulse detected.
     Serial.println(" ms elapsed in");
-    Serial.print(tmpMsElapsedOut, DEC);   //Prints milliseconds elapsed since last outbound pulse detected.
+    Serial.print(tmpElapsedOut, DEC); //Prints milliseconds elapsed since last outbound pulse detected.
     Serial.println(" ms elapsed out");
-    Serial.print(calc, 2);              //Prints L/hour
+    Serial.print(calc, 2);             //Prints L/hour
     Serial.println(" L/hour");
   }
 
-  if (millis() - currMillisTemp > intervalTemp)
+  if (millis() - prevMillisTemp > intervalTemp)
   {
-    currMillisTemp = millis();
+    prevMillisTemp = millis();
 
     double temperature;
     if (getTemperature(temperature))
     {
+      Serial.print(temperature, 2);
+      Serial.println(" C");
       SendN2kTemperatureData(temperature);
-      //Serial.print(temperature, 2);
-      //Serial.println(" C");
     }
   }
 
