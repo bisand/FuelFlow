@@ -228,7 +228,7 @@ void loop()
     if (loopElapsedIn > MAX_ELAPSED_MS)
       msElapsedIn = MAX_ELAPSED_MS;
     tmpMsElapsedIn = msElapsedIn;
-    if (pulsesTot >= MAXFLOAT)
+    if (pulsesTot >= UINT_MAX)
       pulsesTot = 0;
     portEXIT_CRITICAL_ISR(&muxIn);
 
