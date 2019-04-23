@@ -16,6 +16,7 @@
 //#define ESP32_CAN_TX_PIN GPIO_NUM_16  // Pin 6 (D4) on ESP32
 //#define ESP32_CAN_RX_PIN GPIO_NUM_4   // Pin 5 (RX2) on ESP32
 
+#include "RunningAverage.h"
 #include "MovingAverageFloat.h"
 #include "DHTesp.h"
 #include "NMEA2000_CAN.h" // This will automatically choose right CAN library and create suitable NMEA2000 object
@@ -205,8 +206,11 @@ unsigned long tmpMsLastOut = 0;
 unsigned long tmpMsElapsedIn = 0;
 unsigned long tmpMsElapsedOut = 0;
 
-MovingAverageFloat <8> filterIn;
-MovingAverageFloat <8> filterOut;
+MovingAverageFloat <10> filterIn;
+MovingAverageFloat <10> filterOut;
+
+RunningAverage raIn(10);
+RunningAverage raOut(10);
 
 /*
   The loop
@@ -253,11 +257,15 @@ void loop()
     // Calculates flow by elapsed milliseconds. Works better on lower flow rates.
     calcIn = calculateFlow(mlppIn, tmpMsElapsedIn);
     calcIn = adjustCalculation(calcIn, mlppIn, loopElapsedIn);
-    calcIn = filterIn.add(calcIn); // Moving average.
+    //calcIn = filterIn.add(calcIn); // Moving average.
+    raIn.addValue(calcIn);
+    calcIn = raIn.getAverage();
 
     calcOut = calculateFlow(mlppOut, tmpMsElapsedOut);
     calcOut = adjustCalculation(calcOut, mlppOut, loopElapsedOut);
-    calcOut = filterOut.add(calcOut); // Moving average.
+    //calcOut = filterOut.add(calcOut); // Moving average.
+    raOut.addValue(calcOut);
+    calcOut = raOut.getAverage();
 
     float calc = static_cast<float>(calcIn - calcOut);
 
