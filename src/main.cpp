@@ -51,7 +51,8 @@ int flowOutPin = 26; //The pin location of the output sensor
 int rpmPin = 27;
 int dhtPin = 13;
 
-volatile unsigned int pulsesTot = 0; //Pulse count to calibrate fuel flow.
+volatile unsigned int pulsesIn = 0; //Pulse count to calibrate fuel flow.
+volatile unsigned int pulsesOut = 0; //Pulse count to calibrate fuel flow.
 volatile unsigned int rpmPulses = 0;
 volatile unsigned long msLastIn = 0;                  // Last registered milliseconds from inbound interrupt.
 volatile unsigned long msLastOut = 0;                 // Last registered milliseconds from outbound interrupt.
@@ -72,7 +73,7 @@ portMUX_TYPE muxOut = portMUX_INITIALIZER_UNLOCKED;
 void IRAM_ATTR flowInInterrupt()
 {
   portENTER_CRITICAL_ISR(&muxIn);
-  pulsesTot++;
+  pulsesIn++;
   unsigned long ms = millis();
   msElapsedIn = ms - msLastIn;
   msLastIn = ms;
@@ -86,6 +87,7 @@ void IRAM_ATTR flowInInterrupt()
 void IRAM_ATTR flowOutInterrupt()
 {
   portENTER_CRITICAL_ISR(&muxOut);
+  pulsesOut++;
   unsigned long ms = millis();
   msElapsedOut = ms - msLastOut;
   msLastOut = ms;
@@ -245,10 +247,12 @@ float pulsesPerLiterOut = 160.0;            // Pulses per liter Out
 float mlppIn = 1000.0 / pulsesPerLiterIn;   // Milliliters per pulse = 5.2632
 float mlppOut = 1000.0 / pulsesPerLiterOut; // Milliliters per pulse = 6,25
 
-unsigned long tmpMsLastIn = 0;
-unsigned long tmpMsLastOut = 0;
 unsigned long tmpMsElapsedIn = MAX_ELAPSED_MS;
 unsigned long tmpMsElapsedOut = MAX_ELAPSED_MS;
+unsigned long prevMsElapsed = 0;
+unsigned long lastMillis = 0;
+unsigned long lastPulsesIn = 0;
+unsigned long lastPulsesOut = 0;
 
 MovingAverageFloat<10> filterIn;
 MovingAverageFloat<10> filterOut;
@@ -266,22 +270,23 @@ double temperature = 0;
 void loop()
 {
   // Do calculation if time has changed since last calculation.
-  if (msLastIn > tmpMsLastIn || msLastOut > tmpMsLastOut)
+  if (pulsesIn > lastPulsesIn || pulsesOut > lastPulsesOut)
   {
     currMillis = millis();
-    tmpMsLastIn = msLastIn;
-    tmpMsLastOut = msLastOut;
+    prevMsElapsed = currMillis - lastMillis;
+    lastMillis = currMillis;
 
     unsigned long loopElapsedIn = 0;
     unsigned long loopElapsedOut = 0;
 
     portENTER_CRITICAL_ISR(&muxIn);
+    lastPulsesIn = pulsesIn;
     loopElapsedIn = currMillis - msLastIn;
     if (loopElapsedIn > MAX_ELAPSED_MS)
       msElapsedIn = MAX_ELAPSED_MS;
     tmpMsElapsedIn = msElapsedIn;
-    if (pulsesTot >= UINT_MAX)
-      pulsesTot = 0;
+    if(lastPulsesIn == pulsesIn)
+      tmpMsElapsedIn = tmpMsElapsedIn + prevMsElapsed;
     portEXIT_CRITICAL_ISR(&muxIn);
 
     // Prevent division by zero.
@@ -289,10 +294,13 @@ void loop()
       tmpMsElapsedIn = MAX_ELAPSED_MS;
 
     portENTER_CRITICAL_ISR(&muxOut);
+    lastPulsesOut = pulsesOut;
     loopElapsedOut = currMillis - msLastOut;
     if (loopElapsedOut > MAX_ELAPSED_MS)
       msElapsedOut = MAX_ELAPSED_MS;
     tmpMsElapsedOut = msElapsedOut;
+    if(lastPulsesOut == pulsesOut)
+      tmpMsElapsedOut = tmpMsElapsedOut + prevMsElapsed;
     portEXIT_CRITICAL_ISR(&muxOut);
 
     // Prevent division by zero.
@@ -321,7 +329,7 @@ void loop()
 
     SendSlowN2kEngineData(fuelFlow);
 
-    printToSerial(temperature, pulsesTot, tmpMsElapsedIn, tmpMsElapsedOut, fuelFlow);
+    printToSerial(temperature, pulsesIn, tmpMsElapsedIn, tmpMsElapsedOut, fuelFlow);
   }
   else if (millis() - currMillis > interval)
   {
@@ -329,7 +337,7 @@ void loop()
     currMillis = millis();
     SendSlowN2kEngineData(fuelFlow);
 
-    printToSerial(temperature, pulsesTot, tmpMsElapsedIn, tmpMsElapsedOut, fuelFlow);
+    printToSerial(temperature, pulsesIn, tmpMsElapsedIn, tmpMsElapsedOut, fuelFlow);
   }
 
   if (millis() - currMillisTemp > intervalTemp)
