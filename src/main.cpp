@@ -257,13 +257,15 @@ void loop()
     // Calculates flow by elapsed milliseconds. Works better on lower flow rates.
     calcIn = calculateFlow(mlppIn, tmpMsElapsedIn);
     calcIn = adjustCalculation(calcIn, mlppIn, loopElapsedIn);
-    //calcIn = filterIn.add(calcIn); // Moving average.
+    // Moving average in.
+    //calcIn = filterIn.add(calcIn);
     raIn.addValue(calcIn);
     calcIn = raIn.getAverage();
 
     calcOut = calculateFlow(mlppOut, tmpMsElapsedOut);
     calcOut = adjustCalculation(calcOut, mlppOut, loopElapsedOut);
-    //calcOut = filterOut.add(calcOut); // Moving average.
+    // Moving average out.
+    //calcOut = filterOut.add(calcOut);
     raOut.addValue(calcOut);
     calcOut = raOut.getAverage();
 
