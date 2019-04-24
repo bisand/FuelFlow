@@ -333,12 +333,12 @@ void loop()
     currMillisRpm = millis();
 
     unsigned int tmpRpmPulses;
-    portENTER_CRITICAL_ISR(&muxRpm);
+    portENTER_CRITICAL(&muxRpm);
     tmpRpmPulses = rpmPulses;
     rpmPulses = 0;
-    portEXIT_CRITICAL_ISR(&muxRpm);
-    unsigned int rpm = static_cast<unsigned int>((tmpRpmPulses * (1000 / intervalRpm) / rpmDivisor) * 60);
-    SendFastN2kEngineData(static_cast<double>(rpm));
+    portEXIT_CRITICAL(&muxRpm);
+    double rpm = static_cast<double>((tmpRpmPulses * (1000 / intervalRpm) / rpmDivisor) * 60);
+    SendFastN2kEngineData(rpm);
     Serial.print(rpm, DEC);
     Serial.println(" RPM");
   }
