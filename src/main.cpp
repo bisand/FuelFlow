@@ -26,6 +26,7 @@ const char ManufacturerInformation[] PROGMEM = "André Biseth, andre@biseth.net"
 const char InstallationDescription1[] PROGMEM = "Engine Monitor";
 const char InstallationDescription2[] PROGMEM = "Monitoring engine parameters.";
 
+#define IS_DEBUG true
 #define MAX_ELAPSED_MS 60000
 #define MAX_ELAPSED_HALF_MS (MAX_ELAPSED_MS / 2)
 
@@ -165,6 +166,8 @@ bool getTemperature(double &temperature)
 
 void printToSerial(float tmp, unsigned long pulses, unsigned long elpsIn, unsigned long elpsOut, float flow)
 {
+  if (!IS_DEBUG)
+    return;
   Serial.print(tmp, 2);
   Serial.println(" °C");
   Serial.print(pulses, DEC); //Prints the number of total pulses since start. Use this value to calibrate sensors.
@@ -329,12 +332,15 @@ void loop()
   {
     currMillisRpm = millis();
 
-    unsigned int tmpRpmPulses = rpmPulses;
+    unsigned int tmpRpmPulses;
     portENTER_CRITICAL_ISR(&muxRpm);
+    tmpRpmPulses = rpmPulses;
     rpmPulses = 0;
     portEXIT_CRITICAL_ISR(&muxRpm);
-    float rpm = (tmpRpmPulses / rpmDivisor) * (60.0 / intervalRpm);
-    SendFastN2kEngineData(rpm);
+    unsigned int rpm = static_cast<unsigned int>((tmpRpmPulses * (1000 / intervalRpm) / rpmDivisor) * 60);
+    SendFastN2kEngineData(static_cast<double>(rpm));
+    Serial.print(rpm, DEC);
+    Serial.println(" RPM");
   }
 
   NMEA2000.ParseMessages();
