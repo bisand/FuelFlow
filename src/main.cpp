@@ -339,8 +339,11 @@ void loop()
     portEXIT_CRITICAL(&muxRpm);
     double rpm = static_cast<double>((tmpRpmPulses * (1000 / intervalRpm) / rpmDivisor) * 60);
     SendFastN2kEngineData(rpm);
-    Serial.print(rpm, DEC);
-    Serial.println(" RPM");
+    if (IS_DEBUG)
+    {
+      Serial.print(rpm, DEC);
+      Serial.println(" RPM");
+    }
   }
 
   NMEA2000.ParseMessages();
