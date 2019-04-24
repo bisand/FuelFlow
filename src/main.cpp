@@ -10,14 +10,14 @@ DHTesp dht;
 // ---  Example of using PROGMEM to hold Product ID.  However, doing this will prevent any updating of
 //      these details outside of recompiling the program.
 const tNMEA2000::tProductInformation ProductInformation PROGMEM = {
-    1300,                // N2kVersion
-    1001,                // Manufacturer's product code
-    "Engine Monitor",    // Manufacturer's Model ID
-    "0.3.0",             // Manufacturer's Software version code
-    "0.3.0",             // Manufacturer's Model version
-    "00000001",          // Manufacturer's Model serial code
-    0,                   // SertificationLevel
-    1                    // LoadEquivalency
+    1300,             // N2kVersion
+    1001,             // Manufacturer's product code
+    "Engine Monitor", // Manufacturer's Model ID
+    "0.3.0",          // Manufacturer's Software version code
+    "0.3.0",          // Manufacturer's Model version
+    "00000001",       // Manufacturer's Model serial code
+    0,                // SertificationLevel
+    1                 // LoadEquivalency
 };
 
 // ---  Example of using PROGMEM to hold Configuration information.  However, doing this will prevent any updating of
@@ -34,7 +34,7 @@ int flowOutPin = 26; //The pin location of the output sensor
 int rpmPin = 27;
 int dhtPin = 13;
 
-volatile unsigned int pulsesIn = 0; //Pulse count to calibrate fuel flow.
+volatile unsigned int pulsesIn = 0;  //Pulse count to calibrate fuel flow.
 volatile unsigned int pulsesOut = 0; //Pulse count to calibrate fuel flow.
 volatile unsigned int rpmPulses = 0;
 volatile unsigned long msLastIn = 0;                  // Last registered milliseconds from inbound interrupt.
@@ -167,13 +167,13 @@ void printToSerial(float tmp, unsigned long pulses, unsigned long elpsIn, unsign
 {
   Serial.print(tmp, 2);
   Serial.println(" °C");
-  Serial.print(pulses, DEC);    //Prints the number of total pulses since start. Use this value to calibrate sensors.
+  Serial.print(pulses, DEC); //Prints the number of total pulses since start. Use this value to calibrate sensors.
   Serial.println(" pulses in total");
-  Serial.print(elpsIn, DEC);    //Prints milliseconds elapsed since last inbound pulse detected.
+  Serial.print(elpsIn, DEC); //Prints milliseconds elapsed since last inbound pulse detected.
   Serial.println(" ms elapsed in");
-  Serial.print(elpsOut, DEC);   //Prints milliseconds elapsed since last outbound pulse detected.
+  Serial.print(elpsOut, DEC); //Prints milliseconds elapsed since last outbound pulse detected.
   Serial.println(" ms elapsed out");
-  Serial.print(flow, 2);        //Prints L/hour
+  Serial.print(flow, 2); //Prints L/hour
   Serial.println(" L/hour");
 }
 
@@ -210,12 +210,12 @@ void setup()
   //  NMEA2000.SetN2kCANMsgBufSize(2);                    // For this simple example, limit buffer size to 2, since we are only sending data
   NMEA2000.Open();
 
-  pinMode(flowInPin, INPUT);                                                      //initializes digital pin as an input
-  attachInterrupt(digitalPinToInterrupt(flowInPin), flowInInterrupt, FALLING);    //and the interrupt is attached
-  pinMode(flowOutPin, INPUT);                                                     //initializes digital pin as an input
-  attachInterrupt(digitalPinToInterrupt(flowOutPin), flowOutInterrupt, FALLING);  //and the interrupt is attached
-  pinMode(rpmPin, INPUT);                                                         //initializes digital pin as an input
-  attachInterrupt(digitalPinToInterrupt(rpmPin), rpmInterrupt, FALLING);          //and the interrupt is attached
+  pinMode(flowInPin, INPUT);                                                     //initializes digital pin as an input
+  attachInterrupt(digitalPinToInterrupt(flowInPin), flowInInterrupt, FALLING);   //and the interrupt is attached
+  pinMode(flowOutPin, INPUT);                                                    //initializes digital pin as an input
+  attachInterrupt(digitalPinToInterrupt(flowOutPin), flowOutInterrupt, FALLING); //and the interrupt is attached
+  pinMode(rpmPin, INPUT);                                                        //initializes digital pin as an input
+  attachInterrupt(digitalPinToInterrupt(rpmPin), rpmInterrupt, FALLING);         //and the interrupt is attached
 }
 
 unsigned long currMillis = 0;
@@ -265,31 +265,29 @@ void loop()
     loopElapsedIn = 0;
     loopElapsedOut = 0;
 
-    portENTER_CRITICAL_ISR(&muxIn);
+    portENTER_CRITICAL(&muxIn);
     loopElapsedIn = currMillis - msLastIn;
     if (loopElapsedIn > MAX_ELAPSED_MS)
       msElapsedIn = MAX_ELAPSED_MS;
     tmpMsElapsedIn = msElapsedIn;
-    if(pulsesIn == lastPulsesIn && pulsesOut > lastPulsesOut && loopElapsedIn < MAX_ELAPSED_MS)
+    if (pulsesIn == lastPulsesIn && pulsesOut > lastPulsesOut && loopElapsedIn < MAX_ELAPSED_MS)
       tmpMsElapsedIn = tmpMsElapsedIn + prevMsElapsed;
     lastPulsesIn = pulsesIn;
-    portEXIT_CRITICAL_ISR(&muxIn);
+    portEXIT_CRITICAL(&muxIn);
 
-    // Prevent division by zero.
-    if (tmpMsElapsedIn < 1)
-      tmpMsElapsedIn = 1;
-
-    portENTER_CRITICAL_ISR(&muxOut);
+    portENTER_CRITICAL(&muxOut);
     loopElapsedOut = currMillis - msLastOut;
     if (loopElapsedOut > MAX_ELAPSED_MS)
       msElapsedOut = MAX_ELAPSED_MS;
     tmpMsElapsedOut = msElapsedOut;
-    if(pulsesOut == lastPulsesOut && pulsesIn > lastPulsesIn && loopElapsedOut < MAX_ELAPSED_MS)
+    if (pulsesOut == lastPulsesOut && pulsesIn > lastPulsesIn && loopElapsedOut < MAX_ELAPSED_MS)
       tmpMsElapsedOut = tmpMsElapsedOut + prevMsElapsed;
     lastPulsesOut = pulsesOut;
-    portEXIT_CRITICAL_ISR(&muxOut);
+    portEXIT_CRITICAL(&muxOut);
 
     // Prevent division by zero.
+    if (tmpMsElapsedIn < 1)
+      tmpMsElapsedIn = 1;
     if (tmpMsElapsedOut < 1)
       tmpMsElapsedOut = 1;
 
