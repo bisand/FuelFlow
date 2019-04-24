@@ -270,28 +270,28 @@ void loop()
     if (loopElapsedIn > MAX_ELAPSED_MS)
       msElapsedIn = MAX_ELAPSED_MS;
     tmpMsElapsedIn = msElapsedIn;
-    if(lastPulsesIn == pulsesIn && pulsesOut > lastPulsesOut && loopElapsedIn < MAX_ELAPSED_MS)
+    if(pulsesIn == lastPulsesIn && pulsesOut > lastPulsesOut && loopElapsedIn < MAX_ELAPSED_MS)
       tmpMsElapsedIn = tmpMsElapsedIn + prevMsElapsed;
     lastPulsesIn = pulsesIn;
     portEXIT_CRITICAL_ISR(&muxIn);
 
     // Prevent division by zero.
-    if (tmpMsElapsedIn == 0)
-      tmpMsElapsedIn = MAX_ELAPSED_MS;
+    if (tmpMsElapsedIn < 1)
+      tmpMsElapsedIn = 1;
 
     portENTER_CRITICAL_ISR(&muxOut);
     loopElapsedOut = currMillis - msLastOut;
     if (loopElapsedOut > MAX_ELAPSED_MS)
       msElapsedOut = MAX_ELAPSED_MS;
     tmpMsElapsedOut = msElapsedOut;
-    if(lastPulsesOut == pulsesOut && pulsesIn > lastPulsesIn && loopElapsedOut < MAX_ELAPSED_MS)
+    if(pulsesOut == lastPulsesOut && pulsesIn > lastPulsesIn && loopElapsedOut < MAX_ELAPSED_MS)
       tmpMsElapsedOut = tmpMsElapsedOut + prevMsElapsed;
     lastPulsesOut = pulsesOut;
     portEXIT_CRITICAL_ISR(&muxOut);
 
     // Prevent division by zero.
-    if (tmpMsElapsedOut == 0)
-      tmpMsElapsedOut = MAX_ELAPSED_MS;
+    if (tmpMsElapsedOut < 1)
+      tmpMsElapsedOut = 1;
 
     float calcIn = 0.0;
     float calcOut = 0.0;
@@ -299,18 +299,17 @@ void loop()
     // Calculates flow by elapsed milliseconds. Works better on lower flow rates.
     calcIn = calculateFlow(mlppIn, tmpMsElapsedIn);
     calcIn = adjustCalculation(calcIn, mlppIn, loopElapsedIn);
-    // Moving average in.
-    //calcIn = filterIn.add(calcIn);
-    raIn.addValue(calcIn);
-    calcIn = raIn.getAverage();
 
     calcOut = calculateFlow(mlppOut, tmpMsElapsedOut);
     calcOut = adjustCalculation(calcOut, mlppOut, loopElapsedOut);
-    // Moving average out.
-    //calcOut = filterOut.add(calcOut);
+
+    // Moving average out. Could probably be used on the calculated result instead?
+    raIn.addValue(calcIn);
+    calcIn = raIn.getAverage();
     raOut.addValue(calcOut);
     calcOut = raOut.getAverage();
 
+    //TODO: Should we use moving average on the calculation instead? Test it.
     fuelFlow = calcIn - calcOut;
 
     SendSlowN2kEngineData(fuelFlow);
