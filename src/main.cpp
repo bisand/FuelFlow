@@ -1,21 +1,4 @@
-// Demo: NMEA2000 library. Send battery status to the bus.
-//
-//
-//      In this example are shown ways to minimize the size and RAM usage using two techniques:
-//        1) Moving data strictures to PROGMEM vs. using inline constantans when calling a function
-//        2) Reducing the size of NMEA CAN buffer to the min needed.  Use caution with this, as some functions
-//           (specifically fast packet Messages) require bigger buffer.
-//
-
 #include <Arduino.h>
-
-//#define N2k_CAN_INT_PIN 21          // Comment out to disable interrupt.
-//#define N2k_SPI_CS_PIN 5
-//#define USE_N2K_CAN USE_N2K_MCP_CAN // Force to use NMEA2000_mcp
-//#define USE_MCP_CAN_CLOCK_SET 8     // Set bus speed to 8 MHz
-//#define ESP32_CAN_TX_PIN GPIO_NUM_16  // Pin 6 (D4) on ESP32
-//#define ESP32_CAN_RX_PIN GPIO_NUM_4   // Pin 5 (RX2) on ESP32
-
 #include "RunningAverage.h"
 #include "MovingAverageFloat.h"
 #include "DHTesp.h"
@@ -263,8 +246,53 @@ MovingAverageFloat<16> filterOut;
 RunningAverage raIn(16);
 RunningAverage raOut(16);
 
-float calculateTotalFuelFlow(unsigned long loopElapsedIn, unsigned long loopElapsedOut)
+unsigned long loopElapsedIn = 0;
+unsigned long loopElapsedOut = 0;
+
+/*
+  The loop
+  The continuously running loop
+*/
+void loop()
 {
+  // Do calculation if time has changed since last calculation.
+  if (pulsesIn > lastPulsesIn || pulsesOut > lastPulsesOut || (millis() - currMillis > interval))
+  {
+    currMillis = millis();
+    prevMsElapsed = currMillis - lastMillis;
+    lastMillis = currMillis;
+
+    loopElapsedIn = 0;
+    loopElapsedOut = 0;
+
+    portENTER_CRITICAL_ISR(&muxIn);
+    loopElapsedIn = currMillis - msLastIn;
+    if (loopElapsedIn > MAX_ELAPSED_MS)
+      msElapsedIn = MAX_ELAPSED_MS;
+    tmpMsElapsedIn = msElapsedIn;
+    if(lastPulsesIn == pulsesIn && pulsesOut > lastPulsesOut && loopElapsedIn < MAX_ELAPSED_MS)
+      tmpMsElapsedIn = tmpMsElapsedIn + prevMsElapsed;
+    lastPulsesIn = pulsesIn;
+    portEXIT_CRITICAL_ISR(&muxIn);
+
+    // Prevent division by zero.
+    if (tmpMsElapsedIn == 0)
+      tmpMsElapsedIn = MAX_ELAPSED_MS;
+
+    portENTER_CRITICAL_ISR(&muxOut);
+    loopElapsedOut = currMillis - msLastOut;
+    if (loopElapsedOut > MAX_ELAPSED_MS)
+      msElapsedOut = MAX_ELAPSED_MS;
+    tmpMsElapsedOut = msElapsedOut;
+    if(lastPulsesOut == pulsesOut && pulsesIn > lastPulsesIn && loopElapsedOut < MAX_ELAPSED_MS)
+      tmpMsElapsedOut = tmpMsElapsedOut + prevMsElapsed;
+    lastPulsesOut = pulsesOut;
+    portEXIT_CRITICAL_ISR(&muxOut);
+
+    // Prevent division by zero.
+    if (tmpMsElapsedOut == 0)
+      tmpMsElapsedOut = MAX_ELAPSED_MS;
+
     float calcIn = 0.0;
     float calcOut = 0.0;
 
@@ -283,69 +311,7 @@ float calculateTotalFuelFlow(unsigned long loopElapsedIn, unsigned long loopElap
     raOut.addValue(calcOut);
     calcOut = raOut.getAverage();
 
-    float result = calcIn - calcOut;
-    return result;
-}
-
-unsigned long loopElapsedIn = 0;
-unsigned long loopElapsedOut = 0;
-
-/*
-  The loop
-  The continuously running loop
-*/
-void loop()
-{
-  // Do calculation if time has changed since last calculation.
-  if (pulsesIn > lastPulsesIn || pulsesOut > lastPulsesOut)
-  {
-    currMillis = millis();
-    prevMsElapsed = currMillis - lastMillis;
-    lastMillis = currMillis;
-
-    loopElapsedIn = 0;
-    loopElapsedOut = 0;
-
-    portENTER_CRITICAL_ISR(&muxIn);
-    lastPulsesIn = pulsesIn;
-    loopElapsedIn = currMillis - msLastIn;
-    if (loopElapsedIn > MAX_ELAPSED_MS)
-      msElapsedIn = MAX_ELAPSED_MS;
-    tmpMsElapsedIn = msElapsedIn;
-    if(lastPulsesIn == pulsesIn)
-      tmpMsElapsedIn = tmpMsElapsedIn + prevMsElapsed;
-    portEXIT_CRITICAL_ISR(&muxIn);
-
-    // Prevent division by zero.
-    if (tmpMsElapsedIn == 0)
-      tmpMsElapsedIn = MAX_ELAPSED_MS;
-
-    portENTER_CRITICAL_ISR(&muxOut);
-    lastPulsesOut = pulsesOut;
-    loopElapsedOut = currMillis - msLastOut;
-    if (loopElapsedOut > MAX_ELAPSED_MS)
-      msElapsedOut = MAX_ELAPSED_MS;
-    tmpMsElapsedOut = msElapsedOut;
-    if(lastPulsesOut == pulsesOut)
-      tmpMsElapsedOut = tmpMsElapsedOut + prevMsElapsed;
-    portEXIT_CRITICAL_ISR(&muxOut);
-
-    // Prevent division by zero.
-    if (tmpMsElapsedOut == 0)
-      tmpMsElapsedOut = MAX_ELAPSED_MS;
-
-    fuelFlow = calculateTotalFuelFlow(loopElapsedIn, loopElapsedIn);
-
-    SendSlowN2kEngineData(fuelFlow);
-
-    printToSerial(temperature, pulsesIn, tmpMsElapsedIn, tmpMsElapsedOut, fuelFlow);
-  }
-  else if (millis() - currMillis > interval)
-  {
-    // Send the same data point every second if it is not updated.
-    currMillis = millis();
-
-    fuelFlow = calculateTotalFuelFlow(loopElapsedIn, loopElapsedIn);
+    fuelFlow = calcIn - calcOut;
 
     SendSlowN2kEngineData(fuelFlow);
 
