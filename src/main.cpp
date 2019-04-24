@@ -55,9 +55,11 @@ portMUX_TYPE muxOut = portMUX_INITIALIZER_UNLOCKED;
 */
 void IRAM_ATTR flowInInterrupt()
 {
+  unsigned long ms = millis();
+  if ((ms - msLastIn) < 100)
+    return;
   portENTER_CRITICAL_ISR(&muxIn);
   pulsesIn++;
-  unsigned long ms = millis();
   msElapsedIn = ms - msLastIn;
   msLastIn = ms;
   portEXIT_CRITICAL_ISR(&muxIn);
@@ -69,9 +71,11 @@ void IRAM_ATTR flowInInterrupt()
 */
 void IRAM_ATTR flowOutInterrupt()
 {
+  unsigned long ms = millis();
+  if ((ms - msLastOut) < 100)
+    return;
   portENTER_CRITICAL_ISR(&muxOut);
   pulsesOut++;
-  unsigned long ms = millis();
   msElapsedOut = ms - msLastOut;
   msLastOut = ms;
   portEXIT_CRITICAL_ISR(&muxOut);
@@ -239,11 +243,8 @@ unsigned long lastMillis = 0;
 unsigned long lastPulsesIn = 0;
 unsigned long lastPulsesOut = 0;
 
-float fuelFlow = 0;
 double temperature = 0;
 
-RunningAverage raIn(16);
-RunningAverage raOut(16);
 RunningAverage raTot(16);
 
 unsigned long loopElapsedIn = 0;
@@ -301,15 +302,12 @@ void loop()
     calcOut = calculateFlow(mlppOut, tmpMsElapsedOut);
     calcOut = adjustCalculation(calcOut, mlppOut, loopElapsedOut);
 
-    // Moving average out. Could probably be used on the calculated result instead?
-    // raIn.addValue(calcIn);
-    // calcIn = raIn.getAverage();
-    // raOut.addValue(calcOut);
-    // calcOut = raOut.getAverage();
-
-    fuelFlow = calcIn - calcOut;
+    // Calculating fuel flow based on input and output flow.
+    float fuelFlow = calcIn - calcOut;
     raTot.addValue(fuelFlow);
-    fuelFlow = raIn.getAverage();
+    fuelFlow = raTot.getFastAverage();
+    if (fuelFlow < 0)
+      fuelFlow = 0;
 
     SendSlowN2kEngineData(fuelFlow);
 
