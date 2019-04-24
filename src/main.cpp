@@ -1,6 +1,5 @@
 #include <Arduino.h>
 #include "RunningAverage.h"
-#include "MovingAverageFloat.h"
 #include "DHTesp.h"
 #include "NMEA2000_CAN.h" // This will automatically choose right CAN library and create suitable NMEA2000 object
 #include "N2kMessages.h"
@@ -243,11 +242,9 @@ unsigned long lastPulsesOut = 0;
 float fuelFlow = 0;
 double temperature = 0;
 
-MovingAverageFloat<16> filterIn;
-MovingAverageFloat<16> filterOut;
-
 RunningAverage raIn(16);
 RunningAverage raOut(16);
+RunningAverage raTot(16);
 
 unsigned long loopElapsedIn = 0;
 unsigned long loopElapsedOut = 0;
@@ -305,13 +302,14 @@ void loop()
     calcOut = adjustCalculation(calcOut, mlppOut, loopElapsedOut);
 
     // Moving average out. Could probably be used on the calculated result instead?
-    raIn.addValue(calcIn);
-    calcIn = raIn.getAverage();
-    raOut.addValue(calcOut);
-    calcOut = raOut.getAverage();
+    // raIn.addValue(calcIn);
+    // calcIn = raIn.getAverage();
+    // raOut.addValue(calcOut);
+    // calcOut = raOut.getAverage();
 
-    //TODO: Should we use moving average on the calculation instead? Test it.
     fuelFlow = calcIn - calcOut;
+    raTot.addValue(fuelFlow);
+    fuelFlow = raIn.getAverage();
 
     SendSlowN2kEngineData(fuelFlow);
 
