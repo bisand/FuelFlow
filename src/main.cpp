@@ -238,8 +238,6 @@ float mlppOut = 1000.0 / pulsesPerLiterOut; // Milliliters per pulse = 6,25
 
 unsigned long tmpMsElapsedIn = MAX_ELAPSED_MS;
 unsigned long tmpMsElapsedOut = MAX_ELAPSED_MS;
-unsigned long prevMsElapsed = 0;
-unsigned long lastMillis = 0;
 unsigned long lastPulsesIn = 0;
 unsigned long lastPulsesOut = 0;
 
@@ -260,8 +258,6 @@ void loop()
   if (pulsesIn > lastPulsesIn || pulsesOut > lastPulsesOut || (millis() - currMillis > interval))
   {
     currMillis = millis();
-    prevMsElapsed = currMillis - lastMillis;
-    lastMillis = currMillis;
 
     loopElapsedIn = 0;
     loopElapsedOut = 0;
@@ -271,8 +267,6 @@ void loop()
     if (loopElapsedIn > MAX_ELAPSED_MS)
       msElapsedIn = MAX_ELAPSED_MS;
     tmpMsElapsedIn = msElapsedIn;
-    // if (pulsesIn == lastPulsesIn && pulsesOut > lastPulsesOut && loopElapsedIn < MAX_ELAPSED_MS)
-    //   tmpMsElapsedIn = tmpMsElapsedIn + prevMsElapsed;
     lastPulsesIn = pulsesIn;
     portEXIT_CRITICAL(&muxIn);
 
@@ -281,8 +275,6 @@ void loop()
     if (loopElapsedOut > MAX_ELAPSED_MS)
       msElapsedOut = MAX_ELAPSED_MS;
     tmpMsElapsedOut = msElapsedOut;
-    // if (pulsesOut == lastPulsesOut && pulsesIn > lastPulsesIn && loopElapsedOut < MAX_ELAPSED_MS)
-    //   tmpMsElapsedOut = tmpMsElapsedOut + prevMsElapsed;
     lastPulsesOut = pulsesOut;
     portEXIT_CRITICAL(&muxOut);
 
