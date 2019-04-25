@@ -25,7 +25,7 @@ const char ManufacturerInformation[] PROGMEM = "André Biseth, andre@biseth.net"
 const char InstallationDescription1[] PROGMEM = "Engine Monitor";
 const char InstallationDescription2[] PROGMEM = "Monitoring engine parameters.";
 
-#define IS_DEBUG true
+#define IS_DEBUG false
 #define MAX_ELAPSED_MS 30000
 #define MAX_ELAPSED_HALF_MS (MAX_ELAPSED_MS / 2)
 
