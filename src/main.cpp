@@ -26,7 +26,7 @@ const char InstallationDescription1[] PROGMEM = "Engine Monitor";
 const char InstallationDescription2[] PROGMEM = "Monitoring engine parameters.";
 
 #define IS_DEBUG true
-#define MAX_ELAPSED_MS 60000
+#define MAX_ELAPSED_MS 30000
 #define MAX_ELAPSED_HALF_MS (MAX_ELAPSED_MS / 2)
 
 int flowInPin = 25;  //The pin location of the input sensor
@@ -56,7 +56,7 @@ portMUX_TYPE muxOut = portMUX_INITIALIZER_UNLOCKED;
 void IRAM_ATTR flowInInterrupt()
 {
   unsigned long ms = millis();
-  if ((ms - msLastIn) < 100)
+  if ((ms - msLastIn) < 50)
     return;
   portENTER_CRITICAL_ISR(&muxIn);
   pulsesIn++;
