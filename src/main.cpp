@@ -82,7 +82,7 @@ void IRAM_ATTR flowOutInterrupt()
 }
 
 /*
-  Interrupt for the outgoing fuel flow.
+  Interrupt for the RPM signal.
   This function is triggered on the falling edge of the hall effect sensors signal
 */
 void IRAM_ATTR rpmInterrupt()
@@ -100,7 +100,6 @@ void SendSlowN2kEngineData(double fuelRate)
   tN2kMsg N2kMsg;
   SetN2kEngineDynamicParam(N2kMsg, 0, 0, 0, 0, 0, fuelRate, 0);
   NMEA2000.SendMsg(N2kMsg);
-  //Serial.println("Sent fuel rate.");
 }
 
 /*
@@ -111,7 +110,6 @@ void SendFastN2kEngineData(double rpm)
   tN2kMsg N2kMsg;
   SetN2kEngineParamRapid(N2kMsg, 0, rpm);
   NMEA2000.SendMsg(N2kMsg);
-  // Serial.println("Sent rpm.");
 }
 
 /*
@@ -122,7 +120,6 @@ void SendN2kTemperatureData(double temperature)
   tN2kMsg N2kMsg;
   SetN2kTemperature(N2kMsg, 1, 1, N2kts_EngineRoomTemperature, CToKelvin(temperature));
   NMEA2000.SendMsg(N2kMsg);
-  // Serial.println("Sent temperature.");
 }
 
 /*
@@ -326,6 +323,9 @@ void loop()
 
   if (millis() - currMillisRpm > intervalRpm)
   {
+    if (rpmPulses < 1)
+      return;
+
     currMillisRpm = millis();
 
     unsigned int tmpRpmPulses;
@@ -335,7 +335,7 @@ void loop()
     portEXIT_CRITICAL(&muxRpm);
     double rpm = static_cast<double>((tmpRpmPulses * (1000 / intervalRpm) / rpmDivisor) * 60);
     SendFastN2kEngineData(rpm);
-    if (IS_DEBUG)
+    if (IS_DEBUG && (millis() - currMillis > interval))
     {
       Serial.print(rpm, DEC);
       Serial.println(" RPM");
