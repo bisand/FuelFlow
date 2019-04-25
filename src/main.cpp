@@ -1,10 +1,9 @@
 #include <Arduino.h>
+#include "alttemp.h"
 #include "RunningAverage.h"
 #include "DHTesp.h"
 #include "NMEA2000_CAN.h" // This will automatically choose right CAN library and create suitable NMEA2000 object
 #include "N2kMessages.h"
-
-DHTesp dht;
 
 // ---  Example of using PROGMEM to hold Product ID.  However, doing this will prevent any updating of
 //      these details outside of recompiling the program.
@@ -12,8 +11,8 @@ const tNMEA2000::tProductInformation ProductInformation PROGMEM = {
     1300,             // N2kVersion
     1001,             // Manufacturer's product code
     "Engine Monitor", // Manufacturer's Model ID
-    "0.3.0",          // Manufacturer's Software version code
-    "0.3.0",          // Manufacturer's Model version
+    "1.0.0",          // Manufacturer's Software version code
+    "1.0.0",          // Manufacturer's Model version
     "00000001",       // Manufacturer's Model serial code
     0,                // SertificationLevel
     1                 // LoadEquivalency
@@ -32,6 +31,7 @@ const char InstallationDescription2[] PROGMEM = "Monitoring engine parameters.";
 int flowInPin = 25;  //The pin location of the input sensor
 int flowOutPin = 26; //The pin location of the output sensor
 int rpmPin = 27;
+int coolTempPin = 14;
 int dhtPin = 13;
 
 volatile unsigned int pulsesIn = 0;  //Pulse count to calibrate fuel flow.
@@ -43,6 +43,8 @@ volatile unsigned long msElapsedIn = MAX_ELAPSED_MS;  // Milliseconds elapsed si
 volatile unsigned long msElapsedOut = MAX_ELAPSED_MS; // Milliseconds elapsed since last outbound interrupt.
 
 unsigned int rpmDivisor = 75;
+AltTemp altTemp;
+DHTesp dht;
 
 // Mutex used by interrupt
 portMUX_TYPE muxRpm = portMUX_INITIALIZER_UNLOCKED;
@@ -72,7 +74,7 @@ void IRAM_ATTR flowInInterrupt()
 void IRAM_ATTR flowOutInterrupt()
 {
   unsigned long ms = millis();
-  if ((ms - msLastOut) < 100)
+  if ((ms - msLastOut) < 50)
     return;
   portENTER_CRITICAL_ISR(&muxOut);
   pulsesOut++;
@@ -95,10 +97,10 @@ void IRAM_ATTR rpmInterrupt()
 /*
   Send NMEA 2000 engine data out on the bus.
 */
-void SendSlowN2kEngineData(double fuelRate)
+void SendSlowN2kEngineData(double fuelRate, double coolTemp = 0)
 {
   tN2kMsg N2kMsg;
-  SetN2kEngineDynamicParam(N2kMsg, 0, 0, 0, 0, 0, fuelRate, 0);
+  SetN2kEngineDynamicParam(N2kMsg, 0, 0, 0, coolTemp, 0, fuelRate, 0);
   NMEA2000.SendMsg(N2kMsg);
 }
 
@@ -186,8 +188,9 @@ void printToSerial(float tmp, unsigned long pulses, unsigned long elpsIn, unsign
 */
 void setup()
 {
-  // Initialize temperature sensor
+  // Initialize temperature sensors
   dht.setup(dhtPin, DHTesp::DHT11);
+  altTemp.setup(coolTempPin);
 
   // Set Product information
   NMEA2000.SetProductInformation(&ProductInformation);
@@ -242,7 +245,7 @@ unsigned long lastPulsesOut = 0;
 
 double temperature = 0;
 
-RunningAverage raTot(16);
+RunningAverage raTot(32);
 
 unsigned long loopElapsedIn = 0;
 unsigned long loopElapsedOut = 0;
@@ -268,8 +271,8 @@ void loop()
     if (loopElapsedIn > MAX_ELAPSED_MS)
       msElapsedIn = MAX_ELAPSED_MS;
     tmpMsElapsedIn = msElapsedIn;
-    if (pulsesIn == lastPulsesIn && pulsesOut > lastPulsesOut && loopElapsedIn < MAX_ELAPSED_MS)
-      tmpMsElapsedIn = tmpMsElapsedIn + prevMsElapsed;
+    // if (pulsesIn == lastPulsesIn && pulsesOut > lastPulsesOut && loopElapsedIn < MAX_ELAPSED_MS)
+    //   tmpMsElapsedIn = tmpMsElapsedIn + prevMsElapsed;
     lastPulsesIn = pulsesIn;
     portEXIT_CRITICAL(&muxIn);
 
@@ -278,8 +281,8 @@ void loop()
     if (loopElapsedOut > MAX_ELAPSED_MS)
       msElapsedOut = MAX_ELAPSED_MS;
     tmpMsElapsedOut = msElapsedOut;
-    if (pulsesOut == lastPulsesOut && pulsesIn > lastPulsesIn && loopElapsedOut < MAX_ELAPSED_MS)
-      tmpMsElapsedOut = tmpMsElapsedOut + prevMsElapsed;
+    // if (pulsesOut == lastPulsesOut && pulsesIn > lastPulsesIn && loopElapsedOut < MAX_ELAPSED_MS)
+    //   tmpMsElapsedOut = tmpMsElapsedOut + prevMsElapsed;
     lastPulsesOut = pulsesOut;
     portEXIT_CRITICAL(&muxOut);
 
@@ -289,8 +292,8 @@ void loop()
     if (tmpMsElapsedOut < 1)
       tmpMsElapsedOut = 1;
 
-    float calcIn = 0.0;
-    float calcOut = 0.0;
+    static float calcIn = 0.0;
+    static float calcOut = 0.0;
 
     // Calculates flow by elapsed milliseconds. Works better on lower flow rates.
     calcIn = calculateFlow(mlppIn, tmpMsElapsedIn);
@@ -300,13 +303,16 @@ void loop()
     calcOut = adjustCalculation(calcOut, mlppOut, loopElapsedOut);
 
     // Calculating fuel flow based on input and output flow.
-    float fuelFlow = calcIn - calcOut;
+    static float fuelFlow = calcIn - calcOut;
     raTot.addValue(fuelFlow);
     fuelFlow = raTot.getFastAverage();
     if (fuelFlow < 0)
       fuelFlow = 0;
 
-    SendSlowN2kEngineData(fuelFlow);
+    // Reads coolant temperature.
+    static float coolTemp = altTemp.getTemperature();
+
+    SendSlowN2kEngineData(fuelFlow, coolTemp);
 
     printToSerial(temperature, pulsesIn, tmpMsElapsedIn, tmpMsElapsedOut, fuelFlow);
   }
