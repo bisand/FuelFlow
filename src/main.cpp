@@ -27,6 +27,7 @@ const char InstallationDescription2[] PROGMEM = "Monitoring engine parameters.";
 #define IS_DEBUG false
 #define MAX_ELAPSED_MS 30000
 #define MAX_ELAPSED_HALF_MS (MAX_ELAPSED_MS / 2)
+#define MOVING_AVERAGE_COUNT 32
 
 int flowInPin = 25;  //The pin location of the input sensor
 int flowOutPin = 26; //The pin location of the output sensor
@@ -45,6 +46,7 @@ volatile unsigned long msElapsedOut = MAX_ELAPSED_MS; // Milliseconds elapsed si
 unsigned int rpmDivisor = 75;
 AltTemp altTemp;
 DHTesp dht;
+RunningAverage raTot(MOVING_AVERAGE_COUNT);
 
 // Mutex used by interrupt
 portMUX_TYPE muxRpm = portMUX_INITIALIZER_UNLOCKED;
@@ -235,7 +237,7 @@ void setup()
   pinMode(rpmPin, INPUT);                                                        //initializes digital pin as an input
   attachInterrupt(digitalPinToInterrupt(rpmPin), rpmInterrupt, FALLING);         //and the interrupt is attached
 
-  raTot.fillValue(0.0, 32);
+  raTot.fillValue(0.0, MOVING_AVERAGE_COUNT);
 }
 
 unsigned long currMillis = 0;
@@ -256,8 +258,6 @@ unsigned long lastPulsesIn = 0;
 unsigned long lastPulsesOut = 0;
 
 double temperature = 0;
-
-RunningAverage raTot(32);
 
 unsigned long loopElapsedIn = 0;
 unsigned long loopElapsedOut = 0;
