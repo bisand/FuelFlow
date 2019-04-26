@@ -197,10 +197,22 @@ void setup()
   // Set Configuration information
   NMEA2000.SetProgmemConfigurationInformation(ManufacturerInformation, InstallationDescription1, InstallationDescription2);
   // Set device information
-  NMEA2000.SetDeviceInformation(1,   // Unique number. Use e.g. Serial number.
+  NMEA2000.SetDeviceInformation(10001,   // Unique number. Use e.g. Serial number.
+                                160, // Device function. See codes on http://www.nmea.org/Assets/20120726%20nmea%202000%20class%20&%20function%20codes%20v%202.00.pdf
+                                50,  // Device class=Electrical Generation. See codes on  http://www.nmea.org/Assets/20120726%20nmea%202000%20class%20&%20function%20codes%20v%202.00.pdf
+                                6765 // Just choosen free from code list on http://www.nmea.org/Assets/20121020%20nmea%202000%20registration%20list.pdf
+  );
+
+  NMEA2000.SetDeviceInformation(10002,   // Unique number. Use e.g. Serial number.
                                 160, // Device function. See codes on http://www.nmea.org/Assets/20120726%20nmea%202000%20class%20&%20function%20codes%20v%202.00.pdf
                                 75,  // Device class=Electrical Generation. See codes on  http://www.nmea.org/Assets/20120726%20nmea%202000%20class%20&%20function%20codes%20v%202.00.pdf
                                 6765 // Just choosen free from code list on http://www.nmea.org/Assets/20121020%20nmea%202000%20registration%20list.pdf
+  );
+
+  NMEA2000.SetDeviceInformation(10003,   // Unique number. Use e.g. Serial number.
+                                130, // Device function. See codes on http://www.nmea.org/Assets/20120726%20nmea%202000%20class%20&%20function%20codes%20v%202.00.pdf
+                                90,  // Device class=Electrical Generation. See codes on  http://www.nmea.org/Assets/20120726%20nmea%202000%20class%20&%20function%20codes%20v%202.00.pdf
+                                6766 // Just choosen free from code list on http://www.nmea.org/Assets/20121020%20nmea%202000%20registration%20list.pdf
   );
 
   // Uncomment 3 rows below to see, what device will send to bus
@@ -222,6 +234,8 @@ void setup()
   attachInterrupt(digitalPinToInterrupt(flowOutPin), flowOutInterrupt, FALLING); //and the interrupt is attached
   pinMode(rpmPin, INPUT);                                                        //initializes digital pin as an input
   attachInterrupt(digitalPinToInterrupt(rpmPin), rpmInterrupt, FALLING);         //and the interrupt is attached
+
+  raTot.fillValue(0.0, 32);
 }
 
 unsigned long currMillis = 0;
