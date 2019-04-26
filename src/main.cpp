@@ -284,8 +284,8 @@ void loop()
     if (tmpMsElapsedOut < 1)
       tmpMsElapsedOut = 1;
 
-    static float calcIn = 0.0;
-    static float calcOut = 0.0;
+    float calcIn = 0.0;
+    float calcOut = 0.0;
 
     // Calculates flow by elapsed milliseconds. Works better on lower flow rates.
     calcIn = calculateFlow(mlppIn, tmpMsElapsedIn);
@@ -295,14 +295,14 @@ void loop()
     calcOut = adjustCalculation(calcOut, mlppOut, loopElapsedOut);
 
     // Calculating fuel flow based on input and output flow.
-    static float fuelFlow = calcIn - calcOut;
+    float fuelFlow = calcIn - calcOut;
     raTot.addValue(fuelFlow);
     fuelFlow = raTot.getFastAverage();
     if (fuelFlow < 0)
       fuelFlow = 0;
 
     // Reads coolant temperature.
-    static float coolTemp = altTemp.getTemperature();
+    float coolTemp = altTemp.getTemperature();
 
     SendSlowN2kEngineData(fuelFlow, coolTemp);
 
