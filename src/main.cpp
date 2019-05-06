@@ -4,6 +4,7 @@
 #include "DHTesp.h"
 #include "NMEA2000_CAN.h" // This will automatically choose right CAN library and create suitable NMEA2000 object
 #include "N2kMessages.h"
+#include "AdminPortal.h"
 
 // ---  Example of using PROGMEM to hold Product ID.  However, doing this will prevent any updating of
 //      these details outside of recompiling the program.
@@ -47,6 +48,7 @@ unsigned int rpmDivisor = 75;
 AltTemp altTemp;
 DHTesp dht;
 RunningAverage raTot(MOVING_AVERAGE_COUNT);
+AdminPortal *adminPortal;
 
 // Mutex used by interrupt
 portMUX_TYPE muxRpm = portMUX_INITIALIZER_UNLOCKED;
@@ -190,6 +192,8 @@ void printToSerial(float tmp, unsigned long pulses, unsigned long elpsIn, unsign
 */
 void setup()
 {
+  adminPortal = new AdminPortal();
+  adminPortal->setup();
   // Initialize temperature sensors
   dht.setup(dhtPin, DHTesp::DHT11);
   altTemp.setup(coolTempPin);
@@ -355,4 +359,5 @@ void loop()
   }
 
   NMEA2000.ParseMessages();
+  adminPortal->loop();
 }
