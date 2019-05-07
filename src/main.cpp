@@ -174,16 +174,32 @@ void printToSerial(float tmp, unsigned long pulses, unsigned long elpsIn, unsign
 {
   if (!IS_DEBUG)
     return;
-  Serial.print(tmp, 2);
-  Serial.println(" °C");
-  Serial.print(pulses, DEC); //Prints the number of total pulses since start. Use this value to calibrate sensors.
-  Serial.println(" pulses in total");
-  Serial.print(elpsIn, DEC); //Prints milliseconds elapsed since last inbound pulse detected.
-  Serial.println(" ms elapsed in");
-  Serial.print(elpsOut, DEC); //Prints milliseconds elapsed since last outbound pulse detected.
-  Serial.println(" ms elapsed out");
-  Serial.print(flow, 2); //Prints L/hour
-  Serial.println(" L/hour");
+  unsigned int ram = ESP.getFreeHeap();
+  // Serial.print(tmp, 2);
+  // Serial.println(" °C");
+  // Serial.print(pulses, DEC); //Prints the number of total pulses since start. Use this value to calibrate sensors.
+  // Serial.println(" pulses in total");
+  // Serial.print(elpsIn, DEC); //Prints milliseconds elapsed since last inbound pulse detected.
+  // Serial.println(" ms elapsed in");
+  // Serial.print(elpsOut, DEC); //Prints milliseconds elapsed since last outbound pulse detected.
+  // Serial.println(" ms elapsed out");
+  // Serial.print(flow, 2); //Prints L/hour
+  // Serial.println(" L/hour");
+  // Serial.print(ram, DEC); //Prints L/hour
+  // Serial.println(" RAM");
+
+  char buf[50];
+  sprintf(buf, "Pulses: %d", pulses);
+  adminPortal->log("pulses", buf);
+  sprintf(buf, "Elapsed in: %d", elpsIn);
+  adminPortal->log("elapsedIn", buf);
+  sprintf(buf, "Elapsed out: %d", elpsOut);
+  adminPortal->log("elapsedOut", buf);
+  sprintf(buf, "Flow: %d L/hour", flow);
+  adminPortal->log("flow", buf);
+  sprintf(buf, "RAM: %d bytes", ram);
+  adminPortal->log("ram", buf);
+  
 }
 
 /*
@@ -192,7 +208,7 @@ void printToSerial(float tmp, unsigned long pulses, unsigned long elpsIn, unsign
 */
 void setup()
 {
-  adminPortal = new AdminPortal();
+  adminPortal = new AdminPortal("EngMon", "Password123");
   adminPortal->setup();
   // Initialize temperature sensors
   dht.setup(dhtPin, DHTesp::DHT11);
