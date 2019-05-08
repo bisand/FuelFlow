@@ -215,14 +215,17 @@ void setup()
   String chipId = mac.substring(6);
   String clientId = "EM-" + chipId;
   WiFi.mode(WIFI_AP);
-  WiFi.softAPConfig(IPAddress(192, 168, 4, 1), IPAddress(192, 168, 4, 1), IPAddress(255, 255, 255, 0));
+  
+  IPAddress Ip(192, 168, 4, 1);
+  IPAddress NMask(255, 255, 255, 0);
+  WiFi.softAPConfig(Ip, Ip, NMask);
   WiFi.softAP(clientId.c_str(), mac.c_str());
 
   //Serial.println("Chip Id:      " + chipid);
   Serial.println("Access Point: " + clientId);
   Serial.println("Password:     " + mac);
   Serial.println("-----------------------------------------");
-  Serial.println("IP address:   " + WiFi.softAPIP());
+  Serial.println("IP address:   " + WiFi.softAPIP().toString());
   Serial.println("MAC:          " + mac);
 
   /*use mdns for host name resolution*/
@@ -238,6 +241,11 @@ void setup()
 
   adminPortal = new AdminPortal();
   adminPortal->setup();
+  // if(adminPortal->formatSPIFFS())
+  // {
+  //   Serial.println("Successfully formatted SPIFFS.");
+  // }
+
   // Initialize temperature sensors
   dht.setup(dhtPin, DHTesp::DHT11);
   altTemp.setup(coolTempPin);
