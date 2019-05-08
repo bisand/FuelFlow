@@ -208,7 +208,29 @@ void printToSerial(float tmp, unsigned long pulses, unsigned long elpsIn, unsign
 */
 void setup()
 {
-  adminPortal = new AdminPortal("EngMon", "Password123");
+  Serial.begin(115200);
+
+  WiFi.softAPConfig(IPAddress(192,168,4,1), IPAddress(192,168,4,1), IPAddress(255, 255, 255, 0));
+  WiFi.softAP("EngMon", "Password123");
+
+  Serial.println("");
+  Serial.print("Connected to ");
+  Serial.println("EngMon");
+  Serial.print("IP address: ");
+  Serial.println(WiFi.softAPIP());
+
+  /*use mdns for host name resolution*/
+  if (!MDNS.begin("EngMon"))
+  {
+    Serial.println("Error setting up MDNS responder!");
+    while (1)
+    {
+      delay(1000);
+    }
+  }
+  Serial.println("mDNS responder started");
+
+  adminPortal = new AdminPortal();
   adminPortal->setup();
   // Initialize temperature sensors
   dht.setup(dhtPin, DHTesp::DHT11);
