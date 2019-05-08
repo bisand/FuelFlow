@@ -189,15 +189,15 @@ void printToSerial(float tmp, unsigned long pulses, unsigned long elpsIn, unsign
   // Serial.println(" RAM");
 
   char buf[50];
-  sprintf(buf, "Pulses: %d", pulses);
+  sprintf(buf, "%ld", pulses);
   adminPortal->log("pulses", buf);
-  sprintf(buf, "Elapsed in: %d", elpsIn);
+  sprintf(buf, "%ld", elpsIn);
   adminPortal->log("elapsedIn", buf);
-  sprintf(buf, "Elapsed out: %d", elpsOut);
+  sprintf(buf, "%ld", elpsOut);
   adminPortal->log("elapsedOut", buf);
-  sprintf(buf, "Flow: %d L/hour", flow);
+  sprintf(buf, "%f.1", flow);
   adminPortal->log("flow", buf);
-  sprintf(buf, "RAM: %d bytes", ram);
+  sprintf(buf, "%d", ram);
   adminPortal->log("ram", buf);
   
 }
