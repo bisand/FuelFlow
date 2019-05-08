@@ -199,7 +199,6 @@ void printToSerial(float tmp, unsigned long pulses, unsigned long elpsIn, unsign
   adminPortal->log("flow", buf);
   sprintf(buf, "%d", ram);
   adminPortal->log("ram", buf);
-  
 }
 
 /*
@@ -210,17 +209,24 @@ void setup()
 {
   Serial.begin(115200);
 
-  WiFi.softAPConfig(IPAddress(192,168,4,1), IPAddress(192,168,4,1), IPAddress(255, 255, 255, 0));
-  WiFi.softAP("EngMon", "Password123");
+  uint64_t chipid = ESP.getEfuseMac();
+  String mac = WiFi.macAddress();
+  mac.replace(":", "");
+  String chipId = mac.substring(6);
+  String clientId = "EM-" + chipId;
+  WiFi.mode(WIFI_AP);
+  WiFi.softAPConfig(IPAddress(192, 168, 4, 1), IPAddress(192, 168, 4, 1), IPAddress(255, 255, 255, 0));
+  WiFi.softAP(clientId.c_str(), mac.c_str());
 
-  Serial.println("");
-  Serial.print("Connected to ");
-  Serial.println("EngMon");
-  Serial.print("IP address: ");
-  Serial.println(WiFi.softAPIP());
+  //Serial.println("Chip Id:      " + chipid);
+  Serial.println("Access Point: " + clientId);
+  Serial.println("Password:     " + mac);
+  Serial.println("-----------------------------------------");
+  Serial.println("IP address:   " + WiFi.softAPIP());
+  Serial.println("MAC:          " + mac);
 
   /*use mdns for host name resolution*/
-  if (!MDNS.begin("EngMon"))
+  if (!MDNS.begin(clientId.c_str()))
   {
     Serial.println("Error setting up MDNS responder!");
     while (1)
@@ -241,22 +247,22 @@ void setup()
   // Set Configuration information
   NMEA2000.SetProgmemConfigurationInformation(ManufacturerInformation, InstallationDescription1, InstallationDescription2);
   // Set device information
-  NMEA2000.SetDeviceInformation(10001,   // Unique number. Use e.g. Serial number.
-                                160, // Device function. See codes on http://www.nmea.org/Assets/20120726%20nmea%202000%20class%20&%20function%20codes%20v%202.00.pdf
-                                50,  // Device class=Electrical Generation. See codes on  http://www.nmea.org/Assets/20120726%20nmea%202000%20class%20&%20function%20codes%20v%202.00.pdf
-                                6765 // Just choosen free from code list on http://www.nmea.org/Assets/20121020%20nmea%202000%20registration%20list.pdf
+  NMEA2000.SetDeviceInformation(10001, // Unique number. Use e.g. Serial number.
+                                160,   // Device function. See codes on http://www.nmea.org/Assets/20120726%20nmea%202000%20class%20&%20function%20codes%20v%202.00.pdf
+                                50,    // Device class=Electrical Generation. See codes on  http://www.nmea.org/Assets/20120726%20nmea%202000%20class%20&%20function%20codes%20v%202.00.pdf
+                                6765   // Just choosen free from code list on http://www.nmea.org/Assets/20121020%20nmea%202000%20registration%20list.pdf
   );
 
-  NMEA2000.SetDeviceInformation(10002,   // Unique number. Use e.g. Serial number.
-                                160, // Device function. See codes on http://www.nmea.org/Assets/20120726%20nmea%202000%20class%20&%20function%20codes%20v%202.00.pdf
-                                75,  // Device class=Electrical Generation. See codes on  http://www.nmea.org/Assets/20120726%20nmea%202000%20class%20&%20function%20codes%20v%202.00.pdf
-                                6765 // Just choosen free from code list on http://www.nmea.org/Assets/20121020%20nmea%202000%20registration%20list.pdf
+  NMEA2000.SetDeviceInformation(10002, // Unique number. Use e.g. Serial number.
+                                160,   // Device function. See codes on http://www.nmea.org/Assets/20120726%20nmea%202000%20class%20&%20function%20codes%20v%202.00.pdf
+                                75,    // Device class=Electrical Generation. See codes on  http://www.nmea.org/Assets/20120726%20nmea%202000%20class%20&%20function%20codes%20v%202.00.pdf
+                                6765   // Just choosen free from code list on http://www.nmea.org/Assets/20121020%20nmea%202000%20registration%20list.pdf
   );
 
-  NMEA2000.SetDeviceInformation(10003,   // Unique number. Use e.g. Serial number.
-                                130, // Device function. See codes on http://www.nmea.org/Assets/20120726%20nmea%202000%20class%20&%20function%20codes%20v%202.00.pdf
-                                90,  // Device class=Electrical Generation. See codes on  http://www.nmea.org/Assets/20120726%20nmea%202000%20class%20&%20function%20codes%20v%202.00.pdf
-                                6766 // Just choosen free from code list on http://www.nmea.org/Assets/20121020%20nmea%202000%20registration%20list.pdf
+  NMEA2000.SetDeviceInformation(10003, // Unique number. Use e.g. Serial number.
+                                130,   // Device function. See codes on http://www.nmea.org/Assets/20120726%20nmea%202000%20class%20&%20function%20codes%20v%202.00.pdf
+                                90,    // Device class=Electrical Generation. See codes on  http://www.nmea.org/Assets/20120726%20nmea%202000%20class%20&%20function%20codes%20v%202.00.pdf
+                                6766   // Just choosen free from code list on http://www.nmea.org/Assets/20121020%20nmea%202000%20registration%20list.pdf
   );
 
   // Uncomment 3 rows below to see, what device will send to bus
