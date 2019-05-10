@@ -170,24 +170,12 @@ bool getTemperature(double &temperature)
   return true;
 }
 
-void printToSerial(float tmp, unsigned long pulses, unsigned long elpsIn, unsigned long elpsOut, float flow)
+void logData(float tmp, unsigned long pulses, unsigned long elpsIn, unsigned long elpsOut, float flow)
 {
   if (!IS_DEBUG)
     return;
-  unsigned int ram = ESP.getFreeHeap();
-  // Serial.print(tmp, 2);
-  // Serial.println(" °C");
-  // Serial.print(pulses, DEC); //Prints the number of total pulses since start. Use this value to calibrate sensors.
-  // Serial.println(" pulses in total");
-  // Serial.print(elpsIn, DEC); //Prints milliseconds elapsed since last inbound pulse detected.
-  // Serial.println(" ms elapsed in");
-  // Serial.print(elpsOut, DEC); //Prints milliseconds elapsed since last outbound pulse detected.
-  // Serial.println(" ms elapsed out");
-  // Serial.print(flow, 2); //Prints L/hour
-  // Serial.println(" L/hour");
-  // Serial.print(ram, DEC); //Prints L/hour
-  // Serial.println(" RAM");
 
+  unsigned int ram = ESP.getFreeHeap();
   char buf[256];
   sprintf(buf, "%ld | %ld p | %ld ms in | %ld ms out | %f L/hr | %ld bytes", millis(), pulses, elpsIn, elpsOut, flow, ram);
   adminPortal->log("log_event", buf);
@@ -381,7 +369,7 @@ void loop()
 
     SendSlowN2kEngineData(fuelFlow, coolTemp);
 
-    printToSerial(temperature, pulsesIn, tmpMsElapsedIn, tmpMsElapsedOut, fuelFlow);
+    logData(temperature, pulsesIn, tmpMsElapsedIn, tmpMsElapsedOut, fuelFlow);
   }
 
   if (millis() - currMillisTemp > intervalTemp)
@@ -415,6 +403,7 @@ void loop()
     }
   }
 
-  NMEA2000.ParseMessages();
   adminPortal->loop();
+
+  NMEA2000.ParseMessages();
 }
