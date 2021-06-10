@@ -101,10 +101,10 @@ void IRAM_ATTR rpmInterrupt()
 /*
   Send NMEA 2000 engine data out on the bus.
 */
-void SendSlowN2kEngineData(double fuelRate, double coolTemp = 0)
+void SendSlowN2kEngineData(double fuelRate, double coolTemp = 0.0)
 {
   tN2kMsg N2kMsg;
-  SetN2kEngineDynamicParam(N2kMsg, 0, 0, 0, coolTemp, 0, fuelRate, 0);
+  SetN2kEngineDynamicParam(N2kMsg, 0.0, 0.0, 0.0, coolTemp, 0.0, fuelRate, 0.0, N2kDoubleNA, N2kDoubleNA, N2kInt8NA, N2kInt8NA, 0, 0);
   NMEA2000.SendMsg(N2kMsg);
 }
 
