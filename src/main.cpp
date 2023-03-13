@@ -2,6 +2,8 @@
 #include "alttemp.h"
 #include "RunningAverage.h"
 #include "DHTesp.h"
+#include <OneWire.h>
+#include <DallasTemperature.h>
 #include "NMEA2000_CAN.h" // This will automatically choose right CAN library and create suitable NMEA2000 object
 #include "N2kMessages.h"
 #include "AdminPortal.h"
@@ -29,15 +31,18 @@ const char InstallationDescription2[] PROGMEM = "Monitoring engine parameters.";
 #define MAX_ELAPSED_MS 30000
 #define MAX_ELAPSED_HALF_MS (MAX_ELAPSED_MS / 2)
 #define MOVING_AVERAGE_COUNT 32
+#define ONE_WIRE_BUS 13 // This will override DHT temp sensor and use DALLAS DS18B20 Digital Temperatur Sensor. Comment out this line to use DHT sensor instead.
+#define DHTPIN 13       // Digital pin connected to the DHT sensor
+#define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
 
-int flowInPin = 25;  //The pin location of the input sensor
-int flowOutPin = 26; //The pin location of the output sensor
+int flowInPin = 25;  // The pin location of the input sensor
+int flowOutPin = 26; // The pin location of the output sensor
 int rpmPin = 27;
 int coolTempPin = 14;
-int dhtPin = 13;
+int dhtPin = DHTPIN;
 
-volatile unsigned int pulsesIn = 0;  //Pulse count to calibrate fuel flow.
-volatile unsigned int pulsesOut = 0; //Pulse count to calibrate fuel flow.
+volatile unsigned int pulsesIn = 0;  // Pulse count to calibrate fuel flow.
+volatile unsigned int pulsesOut = 0; // Pulse count to calibrate fuel flow.
 volatile unsigned int rpmPulses = 0;
 volatile unsigned long msLastIn = 0;                  // Last registered milliseconds from inbound interrupt.
 volatile unsigned long msLastOut = 0;                 // Last registered milliseconds from outbound interrupt.
@@ -46,9 +51,16 @@ volatile unsigned long msElapsedOut = MAX_ELAPSED_MS; // Milliseconds elapsed si
 
 unsigned int rpmDivisor = 75;
 AltTemp altTemp;
-DHTesp dht;
 RunningAverage raTot(MOVING_AVERAGE_COUNT);
 AdminPortal *adminPortal;
+
+// Init temperature sensor.
+#ifdef ONE_WIRE_BUS
+OneWire oneWire(ONE_WIRE_BUS);
+DallasTemperature sensors(&oneWire);
+#else
+DHTesp dht;
+#endif
 
 // Mutex used by interrupt
 portMUX_TYPE muxRpm = portMUX_INITIALIZER_UNLOCKED;
@@ -158,6 +170,10 @@ float adjustCalculation(float calc, float mlpp, unsigned long elapsed)
 */
 bool getTemperature(double &temperature)
 {
+#ifdef ONE_WIRE_BUS
+  sensors.requestTemperatures();
+  temperature = static_cast<double>(sensors.getTempCByIndex(0));
+#else
   // Reading temperature for humidity takes about 250 milliseconds!
   // Sensor readings may also be up to 2 seconds 'old' (it's a very slow sensor)
   TempAndHumidity newValues = dht.getTempAndHumidity();
@@ -167,6 +183,7 @@ bool getTemperature(double &temperature)
     return false;
   }
   temperature = static_cast<double>(newValues.temperature);
+#endif
   return true;
 }
 
@@ -208,13 +225,13 @@ void setup()
   String chipId = mac.substring(6);
   String clientId = "EM-" + chipId;
   WiFi.mode(WIFI_AP);
-  
+
   IPAddress Ip(192, 168, 4, 1);
   IPAddress NMask(255, 255, 255, 0);
   WiFi.softAPConfig(Ip, Ip, NMask);
   WiFi.softAP(clientId.c_str(), mac.c_str());
 
-  //Serial.println("Chip Id:      " + chipid);
+  // Serial.println("Chip Id:      " + chipid);
   Serial.println("Access Point: " + clientId);
   Serial.println("Password:     " + mac);
   Serial.println("-----------------------------------------");
@@ -239,8 +256,14 @@ void setup()
   //   Serial.println("Successfully formatted SPIFFS.");
   // }
 
-  // Initialize temperature sensors
+  // Init temperature sensor.
+#ifdef ONE_WIRE_BUS
+  OneWire oneWire(ONE_WIRE_BUS);
+  DallasTemperature sensors(&oneWire);
+#else
   dht.setup(dhtPin, DHTesp::DHT11);
+#endif
+
   altTemp.setup(coolTempPin);
 
   // Set Product information
@@ -268,8 +291,8 @@ void setup()
 
   // Uncomment 3 rows below to see, what device will send to bus
   Serial.begin(115200);
-  //NMEA2000.SetForwardStream(&Serial);
-  //NMEA2000.SetForwardType(tNMEA2000::fwdt_Text);     // Show in clear text. Leave uncommented for default Actisense format.
+  // NMEA2000.SetForwardStream(&Serial);
+  // NMEA2000.SetForwardType(tNMEA2000::fwdt_Text);     // Show in clear text. Leave uncommented for default Actisense format.
 
   // If you also want to see all traffic on the bus use N2km_ListenAndNode instead of N2km_NodeOnly below
   NMEA2000.SetMode(tNMEA2000::N2km_ListenAndNode, 22);
@@ -279,12 +302,12 @@ void setup()
   //  NMEA2000.SetN2kCANMsgBufSize(2);                    // For this simple example, limit buffer size to 2, since we are only sending data
   NMEA2000.Open();
 
-  pinMode(flowInPin, INPUT);                                                     //initializes digital pin as an input
-  attachInterrupt(digitalPinToInterrupt(flowInPin), flowInInterrupt, FALLING);   //and the interrupt is attached
-  pinMode(flowOutPin, INPUT);                                                    //initializes digital pin as an input
-  attachInterrupt(digitalPinToInterrupt(flowOutPin), flowOutInterrupt, FALLING); //and the interrupt is attached
-  pinMode(rpmPin, INPUT);                                                        //initializes digital pin as an input
-  attachInterrupt(digitalPinToInterrupt(rpmPin), rpmInterrupt, FALLING);         //and the interrupt is attached
+  pinMode(flowInPin, INPUT);                                                     // initializes digital pin as an input
+  attachInterrupt(digitalPinToInterrupt(flowInPin), flowInInterrupt, FALLING);   // and the interrupt is attached
+  pinMode(flowOutPin, INPUT);                                                    // initializes digital pin as an input
+  attachInterrupt(digitalPinToInterrupt(flowOutPin), flowOutInterrupt, FALLING); // and the interrupt is attached
+  pinMode(rpmPin, INPUT);                                                        // initializes digital pin as an input
+  attachInterrupt(digitalPinToInterrupt(rpmPin), rpmInterrupt, FALLING);         // and the interrupt is attached
 
   raTot.fillValue(0.0, MOVING_AVERAGE_COUNT);
 }
